@@ -214,13 +214,21 @@ class HashCheck:
         """
         Check if file should be skipped.
         """
+        # Check if file extension is in the exclusion list
         if any(file.endswith(ext) for ext in self.exclusions.get("extensions", [])):
+            self.logger.debug(f"Skipping file {file}. File extension is in exclusion list.")
             return True
+        # Check if file name is in the exclusion list
         if file in self.exclusions.get("fileNames", []):
+            self.logger.debug(f"Skipping file {file}. File name is in exclusion list.")
             return True
+        # Check if file path is in the exclusion list
         for path in self.exclusions.get("paths", []):
             if os.path.commonpath([path, file_path]) == path:
+                self.logger.debug(f"Skipping file {file}. File path is in exclusion list.")
                 return True
+        # If no exclusions apply, file is not skipped
+        self.logger.debug(f"File {file} is not in the exclusion list.")
         return False
 
     def _skip_directories(self, dirs):
@@ -239,8 +247,13 @@ class HashCheck:
         flag = 'missing' or 'mismatch'
         """
         if not self._connect_to_db():
+            self.logger.error("Failed to connect to database")
             return
+        
+        # Log the start of the function with an info log
+        self.logger.info("Getting flagged files from database")
 
+        # Get the records based on the flag
         if flag == "missing":
             self.cursor.execute("SELECT * FROM files WHERE missing_date IS NOT NULL")
         elif flag == "mismatch":
@@ -248,54 +261,109 @@ class HashCheck:
         elif flag == None:
             self.cursor.execute("SELECT * FROM files WHERE mismatch_date IS NOT NULL OR missing_date IS NOT NULL")
         else:
+            # Log an error if an invalid flag is passed in
+            self.logger.error("Invalid flag. Please use 'missing' or 'mismatch'.")
             raise ValueError("Invalid flag. Please use 'missing' or 'mismatch'.")
+            
         results = self.cursor.fetchall()
+        
+        # Log the number of results retrieved
+        self.logger.debug(f"{len(results)} results retrieved")
+        
         self.conn.close()
 
         report = self._get_report(results)
         return report
+
 
     def get_all_files(self):
         """
         Returns all files in the database
         """
+        # Check if database is connected
         if not self._connect_to_db():
+            self.logger.error("Failed to connect to database")
             return
 
+        self.logger.debug("Fetching all files from database")
         self.cursor.execute("SELECT * FROM files")
         results = self.cursor.fetchall()
         self.conn.close()
 
+        # Log the result of the query execution
+        if results:
+            self.logger.info(f"Found {len(results)} files")
+        else:
+            self.logger.warning(f"No files found")
+
         report = self._get_report(results)
+
         return report
 
-    def get_files_by_type(self, type):
+    def get_files_by_type(self, file_type):
         """
         Returns the records that have the file type that is passed in
         """
+        # Connect to the database and return if the connection was unsuccessful
         if not self._connect_to_db():
+            self.logger.error("Failed to connect to database")
             return
-
-        self.cursor.execute("SELECT * FROM files WHERE file_type=?", (type,))
+        
+        # Log the start of the function execution
+        self.logger.debug(f"Getting files of type: {file_type}")
+        
+        # Execute the query to retrieve the file records
+        self.cursor.execute("SELECT * FROM files WHERE file_type=?", (file_type,))
         results = self.cursor.fetchall()
-
+        
+        # Log the result of the query execution
+        if results:
+            self.logger.info(f"Found {len(results)} files of type {file_type}")
+        else:
+            self.logger.warning(f"No files found of type: {file_type}")
+        
+        # Call the function to get the report from the results
         report = self._get_report(results)
+        
+        # Return the report
         return report
 
     def get_files_by_initial_date(self,initial_date):
         """
         Retrieve records that match the initial date based on a date or datetime that is passed in as an argument.
         """
+        # Log a debug message indicating the start of the function
+        self.logger.debug("Getting files by initial date: %s", initial_date)
+
+        # Check if the database connection is established
         if not self._connect_to_db():
+            self.logger.error("Failed to connect to database")
             return
 
+        # Log an info message indicating the parsing of the initial date
+        self.logger.info("Parsing initial date: %s", initial_date)
+
+        # Check if the passed-in argument is a string and parse it to a datetime if it is
         if isinstance(initial_date, str):
             initial_date = parse_date(initial_date)
+
+        # Log a debug message indicating the execution of the SQL query
+        self.logger.debug("Executing SQL query: SELECT * FROM files WHERE initial_date = %s", initial_date)
+
+        # Execute the SQL query to retrieve the matching records
         self.cursor.execute("SELECT * FROM files WHERE initial_date = ?", (initial_date,))
         results = self.cursor.fetchall()
         self.conn.close()
 
+        # Log a debug message indicating the start of the `_get_report` function
+        self.logger.debug("Getting report from results")
+
+        # Call the `_get_report` function to generate a report from the results
         report = self._get_report(results)
+
+        # Log an info message indicating the successful completion of the function
+        self.logger.info("Successfully retrieved files by initial date: %s", initial_date)
+
         return report
 
     def reinitialize_db(self):
@@ -303,11 +371,20 @@ class HashCheck:
         Resets all the fields of the db and re-scan all files
         """
         if not self._connect_to_db():
+            self.logger.error("Failed to connect to the database")
             return
 
-        self.cursor.execute("DELETE FROM files")
-        self.conn.commit()
+        try:
+            self.cursor.execute("DELETE FROM files")
+            self.conn.commit()
+            self.logger.info("Successfully deleted all records from the database")
+        except Exception as e:
+            self.logger.error("An error occurred while deleting the records from the database: {}".format(e))
+            return
+
+        self.logger.info("Starting to re-scan all the files")
         self.scan_and_hash_files()
+        self.logger.info("Finished re-scanning all the files")
 
     def reinitialize_specific(self, scan_list):
         """
@@ -321,38 +398,51 @@ class HashCheck:
                 for subdir, dirs, files in os.walk(item):
                     # Skip any directories in the skip list
                     dirs = self._skip_directories(dirs)
+                    self.logger.debug("Removed directories from iteration")
+
                     for file in files:
                         # Get the full file path
                         file_path = subdir + os.sep + file
 
                         # Skip files that are in the exclusion list
                         if self._skip_file(file,file_path):
+                            self.logger.debug("File %s is in the exclusion list and will be skipped", file)
                             continue
 
                         # Re-initialize the record with the file path
                         self._reset_file_record(file_path)
+                        self.logger.info("Record for file %s has been re-initialized", file)
             elif os.path.isfile(item):
                 # Re-initialize the record with the file path
                 self._reset_file_record(item)
+                self.logger.info("Record for file %s has been re-initialized", item)
+            else:
+                self.logger.warning("%s is not a valid file or directory. Skipping...", item)
 
     def _reset_file_record(self,file_path):
         """
         Updates the hash, initial date and file type of a file, along with clearing the missing and mismatch dates
         """
+        # Connect to the database if it's not connected
         if not self._connect_to_db():
+            self.logger.error("Failed to connect to the database.")
             return
 
         # Get the file's hash
         file_hash = fileHash(file_path)
+        self.logger.debug("Generated hash for file: {}".format(file_path))
+        
         # Get the file's type
         file_type = determine_file_type(file_path)
-
+        self.logger.debug("Determined file type for file: {}".format(file_path))
 
         # Delete the record from the database
         self._delete_file_record(file_path)
+        self.logger.info("Deleted record for file: {}".format(file_path))
 
         # Insert a new record into the database
         self._insert_file_record(file_path)
+        self.logger.info("Inserted new record for file: {}".format(file_path))
 
     def connect_db(self, dbFilePath = None):
         '''
@@ -360,15 +450,24 @@ class HashCheck:
         '''
         if not dbFilePath:
             dbFilePath = os.path.join(self.db_folder_path, self.db_file_name)
-        # check if the database file already exists
+
+        # Check if the database file already exists
         if not os.path.exists(dbFilePath):
+            self.logger.info("Creating database since it doesn't exist")
             self.create_db()
-        self.conn = sqlite3.connect(dbFilePath)
+        try:
+            self.conn = sqlite3.connect(dbFilePath)
+            self.logger.info("Successfully connected to database")
+        except Exception as e:
+            self.logger.error("Error connecting to database: %s", e)
+            raise Exception("Error connecting to database")
 
         if self.conn:
             self.cursor = self.conn.cursor()
+            self.logger.debug("Cursor created successfully")
         else:
-            raise Exception('Database connection was not established')
+            self.logger.error("Database connection was not established")
+            raise Exception("Database connection was not established")
 
     def _get_report(self, db_results):
         '''
@@ -376,9 +475,11 @@ class HashCheck:
         '''
         report = {}
 
+        # Loop through each record in the database results
         for row in db_results:
             file_path, file_hash, initial_date, missing_date, mismatch_date, file_type = row
 
+            # Add each record to the report dictionary
             report[file_path] = {
                                 "file_path" : file_path, 
                                 "file_hash" : file_hash,
@@ -387,6 +488,8 @@ class HashCheck:
                                 "mismatch_date" : mismatch_date,
                                 "file_type" : file_type
                                 }
+
+        self.logger.info("Generated report from database results")
         return report
 
 
