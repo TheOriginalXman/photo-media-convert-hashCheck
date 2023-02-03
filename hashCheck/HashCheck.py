@@ -26,19 +26,26 @@ class HashCheck:
         self.connect_db(db_file_path)
 
     def _configure_logger(self):
-        logger = logging.getLogger(__name__)
-        logger.setLevel(logging.DEBUG)
+        # dump all log levels to file
+        self.logger.setLevel(logging.DEBUG)
 
-        # create formatter
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        # create a file handler to log to a file
+        file_handler = None
 
-        # create a file handler
-        
-        handler = logging.FileHandler(self.log_file)
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
+        # Check if we should append to the file or write a new file
+        if self.config.get('singleFileLog', False):
+            file_handler = logging.FileHandler(self.log_file, mode='a')
+        else:
+            file_handler = logging.FileHandler(self.log_file + currentDateTime(), mode='w')
+            
+        file_handler.setLevel(logging.DEBUG)
 
-        return logger
+        # create a formatter for the logs
+        formatter = logging.Formatter('%(asctime)s - %(process)d - %(thread)d - %(name)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s')
+        file_handler.setFormatter(formatter)
+
+        # add the file handler to the logger
+        self.logger.addHandler(file_handler)
 
     def create_db(self):
         """

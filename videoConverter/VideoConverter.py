@@ -6,6 +6,7 @@ import platform
 import mimetypes
 import logging
 from utility.util import get_configurations as getConfig 
+from utility.dateTime import get_current_datetime_string as currentDateTime
 
 
 class VideoConverter:
@@ -34,7 +35,14 @@ class VideoConverter:
         self.logger.setLevel(logging.DEBUG)
 
         # create a file handler to log to a file
-        file_handler = logging.FileHandler(self.log_file, mode='a')
+        file_handler = None
+
+        # Check if we should append to the file or write a new file
+        if self.config.get('singleFileLog', False):
+            file_handler = logging.FileHandler(self.log_file, mode='a')
+        else:
+            file_handler = logging.FileHandler(self.log_file + currentDateTime(), mode='w')
+
         file_handler.setLevel(logging.DEBUG)
 
         # create a formatter for the logs
