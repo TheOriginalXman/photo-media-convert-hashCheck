@@ -1,0 +1,56 @@
+{
+    "global" : {
+        "exclusions" : {
+            "extensions" : [],
+            "folderNames" : [],
+            "fileNames" : [],
+            "paths" : []
+        },
+        "rootFolderList" : [],
+        "logFileName" : "logFolder",
+        "logFolderParentFolderPath" : "./"
+    },
+
+    "video" : {
+        "exclusions" : {
+            "extensions" : ["mp4", "mov", "m4v", "mkv"],
+            "folderNames" : [],
+            "fileNames" : [],
+            "paths" : []
+        },
+        "rootFolderList" : [],
+        "logFileName" : "",
+        "logFolderParentFolderPath" : "",
+        "convertedFolderName" : "MP4_Converted_Videos",
+        "convertedFolderParentFolderPath" : "",
+        "outputExtension" : "mp4"
+    },
+    "photo" : {
+        "exclusions" : {
+            "extensions" : [],
+            "folderNames" : [],
+            "fileNames" : [],
+            "paths" : []
+        },
+        "rootFolderList" : [],
+        "logFileName" : "",
+        "logFolderParentFolderPath" : "",
+        "convertedFolderName" : "JPG_Converted_Photos",
+        "convertedFolderParentFolderPath" : "",
+        "queryExtensions" : ["heic"],
+        "outputExtension" : "jpeg"
+    },
+    "hash" : {
+        "exclusions" : {
+            "extensions" : [],
+            "folderNames" : [],
+            "fileNames" : [],
+            "paths" : []
+        },
+        "rootFolderList" : [],
+        "logFileName" : "",
+        "logFolderParentFolderPath" : "",
+        "dbFile" : "File_DB.db",
+        "dbFileParentFolderPath" : "./"
+    }
+}

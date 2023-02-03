@@ -1,0 +1,11 @@
+Write a python application that reads a config file full of directory paths, scans each of them directory along with its subfolders and files and does the following:
+
+1. Create a JSON file (if it does not already exist) in the root directory called 'Media db.json'
+2. Create a folder called process logs in the same directory as the application 
+3. In each directory scan for photo and video files.
+4. If the photo files are not in JPG, PNG, or TIFF they need to be converted to JPG and added to a folder within the directory called 'More JPG Photos'. If the file has already been converted skip it.
+5. If the video files are not in mp4, m4v, mov, or hvec formats they need to be converted to hvec at best quality using original frame rate and resolution and added to a folder within the directory called 'More mp4 Videos'. If the file has already been converted skip it.
+6. should also be able to create a log file of any errors that occurred on specific files or directories and store these logs with timestamps at the root directory
+7.There should also be a function the create a hash value for all files that are heic, Photo or video files, it should skip the files in the 'More JPG Photos' and 'More mp4 Videos' directories and should be saved to a json file called 'Media db' in the root directory
+8.It should use the file path as the key and along with the hash value, also store the date that it first saw the file.
+9.Another function should be able to compare file hashes to existing values and send an alert (email or any other type of notification) any values that do not match. If a new file is found that does not exist it should be added to the 'Media db' if there is a file missing the date and time that is was found missing should be recorded in the 'Media db' file. 
