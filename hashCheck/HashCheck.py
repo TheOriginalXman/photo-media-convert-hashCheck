@@ -49,7 +49,7 @@ class HashCheck:
         self.conn = sqlite3.connect(dbFilePath)
         self.cursor = self.conn.cursor()
         # Read the schema file
-        with open("schema.sql", "r") as f:
+        with open("hashCheck/hash_db_schema.sql", "r") as f:
             schema = f.read()
 
         # Execute the SQL commands in the schema file
