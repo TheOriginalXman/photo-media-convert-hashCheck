@@ -49,37 +49,46 @@ class PhotoConverter:
             print('Root directory not found')
             return
         
-     # Make sure the output format is in lowercase
+        # Make sure the output format is in lowercase
         output_format = output_format.lower()
-
+        print('Output format: %s' % output_format)
         # Make sure all input formats are in lowercase
         input_formats = [f.lower() for f in input_formats]
+        print('Input formats: %s' % input_formats)
 
         for dirpath, dirnames, filenames in os.walk(self.root_dir):
-
+            #Remove all the exclusion folders and files from the directory walk
             exclusion_folders = self.exclusions.get('folderNames',[])
             exclusion_folders.append(self.converted_folder_name)
             for folder in exclusion_folders:
                 if folder in dirnames:
                     dirnames.remove(folder)
-
+            print('Removed Excluded Folders')
             exclusion_files = self.exclusions.get('fileNames',[])
             for file in exclusion_files:
                 if file in filenames:
                     filenames.remove(file)
+            
+            print('Removed Excluded Files')
 
             jpg_folder = os.path.join(dirpath, self.converted_folder_name)
             if self.config.get('convertedFolderParentFolderPath',None):
                 jpg_folder = self.converted_folder_path
+
+            print('Output Folder Path: {0}'.format(jpg_folder))
             
             for file in filenames:
-                # Get file extension
-                extension = os.path.splitext(file)[1].lower()
                 # Get the full path of the input file
                 input_file = os.path.join(dirpath, file)
+                print('Input File Path: {0}'.format(input_file))
+
+                # Get file extension
+                extension = os.path.splitext(file)[1].lower()
+                print('Extension: {0}'.format(extension))
 
                 # Check if the file needs to be excluded based on file extension
                 if extension in self.exclusions.get('extensions', []):
+                    print('Excluded based on file extension')
                     continue
 
                 # Check if the file needs to be excluded based on exclusion paths provided
@@ -90,19 +99,23 @@ class PhotoConverter:
                             skipFlag = True
                             break
                     if skipFlag:
+                        print('Excluded file being in an excluded path')
                         continue
 
                 # Check if the file extension is in the list of input formats
                 if extension[1:] in input_formats:
+                    print('Extension in input formats list')
                     #Create the converted photo folder if it doesn't exist'
                     if not os.path.exists(jpg_folder):
                         os.mkdir(jpg_folder)
+                        print('Photo conversion folder created')
                     
                     # Get the output file name
                     output_file = os.path.join(jpg_folder, file.replace(extension, '.' + output_format).replace(extension.upper(), '.' + output_format))
-
+                    print('output_file: {}'.format(output_file))
                     # Check if the output file already exists
                     if os.path.exists(output_file):
+                        print('Output file already exists')
                         continue
 
                     if(extension == '.heic'):
@@ -115,10 +128,12 @@ class PhotoConverter:
                         self.convert_img(input_file, output_file, output_format)
                 
                 else:
+                    print('Skipping extension is not in input formats list')
                     continue
     
     def convert_heic_linux(self, input_file, output_file, output_format):
         # Convert the HEIC file to JPG
+        print('Converting HEIC on Linux')
         try:
             if(output_format in ['png', 'jpg','jpeg']):
                 subprocess.run(['heif-convert', '-q', '100', input_file, output_file])
@@ -131,6 +146,7 @@ class PhotoConverter:
 
     def convert_heic_mac(self, input_file, output_file, output_format):
         # Convert the HEIC file to JPG
+        print('Converting HEIC on Mac')
         try:
             subprocess.run(['sips', '-s', 'format', output_format, input_file, '--out', output_file])
         except subprocess.CalledProcessError as e:

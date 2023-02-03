@@ -42,7 +42,8 @@ def _getValidPathList(listOfPaths):
         if os.path.exists(path):
             paths.append(path)
         else:
-            print("skipping path '{}', path cannot be found".format(path))
+            # print("skipping path '{}', path cannot be found".format(path))
+            pass
     return paths
 
 def validateConfig(config_file_path):
