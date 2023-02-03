@@ -7,10 +7,16 @@ from utility.util import determine_file_type, get_file_hash as fileHash, get_con
 class HashCheck:
 
     def __init__(self, config_path="../default_config.json", db_file_path=None):
-
+        # Load configuration from the given path
         self.config = getConfig(config_path, 'hash')
+        # Get the log file path and name from the config file and setup logger
+        self.log_file = os.path.join(self.config.get('logFolderParentFolderPath', None), self.config.get('logFileName', None))
+
+        self.logger = logging.getLogger(__name__)
+        self._configure_logger()
+        self.logger.debug('Log File Path: {0}'.format(self.log_file))
+
         self.root_directories = self.config.get('rootFolderList', [])
-        self.log_file = os.path.join(self.config.get('logFolderParentFolderPath', './'), self.config.get('logFileName', 'hash.log'))
         self.exclusions = self.config.get('exclusions',{})
         self.db_file_name = self.config.get('dbFile','hash.db')
         self.db_folder_path = self.config.get('dbFileParentFolderPath','./')
@@ -18,9 +24,8 @@ class HashCheck:
         self.conn = None
         self.cursor = None
         self.connect_db(db_file_path)
-        self.logger = self._create_logger()
 
-    def _create_logger(self):
+    def _configure_logger(self):
         logger = logging.getLogger(__name__)
         logger.setLevel(logging.DEBUG)
 
@@ -70,6 +75,36 @@ class HashCheck:
                 self.root_dir = root
                 self._scan_and_hash_files()
 
+    def _check_existing_file_in_db(self, file_path):
+        self.cursor.execute("SELECT * FROM files WHERE file_path=?", (file_path,))
+        return self.cursor.fetchone()
+
+    def _clear_missing_date(self, file_path):
+        self.cursor.execute("UPDATE files SET missing_date=NULL WHERE file_path=?", (file_path,))
+
+    def _update_missing_date(self, file_path):
+        self.cursor.execute("UPDATE files SET missing_date=? WHERE file_path=?", (currentDateTime(), file_path))
+
+    def _update_mismatch_date(self, file_path):
+        self.cursor.execute("UPDATE files SET mismatch_date=? WHERE file_path=?", (currentDateTime(), file_path))
+    
+    def _clear_mismatch_date(self, file_path):
+        self.cursor.execute("UPDATE files SET mismatch_date=NULL WHERE file_path=?", (file_path,))
+
+    def _insert_file_record(self, file_path):
+        # Get the initial date
+        initial_date = currentDateTime()
+
+        # Get File Type
+        file_type = determine_file_type(file_path)
+
+        # Add the file's information to the database
+        self.cursor.execute("INSERT INTO files (file_path, file_hash, initial_date, file_type) VALUES (?, ?, ?, ?)", (file_path, file_hash, initial_date, file_type))
+        self.cursor.commit()
+
+    def _delete_file_record(self, file_path):
+        self.cursor.execute("DELETE FROM files WHERE file_path=?", (file_path,))
+        self.conn.commit()
 
     def _scan_and_hash_files(self):
         """
@@ -79,87 +114,94 @@ class HashCheck:
         if not self.root_dir or not os.path.exists(self.root_dir):
             print('Root directory not found')
             return
-
-        self.connect_db()
-
-        if not self.conn or not self.cursor:
-            raise Exception("Database connection not established")
+        if not self._connect_to_db():
+            return
 
         # Walk through all files and directories in the root directory
         for subdir, dirs, files in os.walk(self.root_dir):
             # Skip any directories in the skip list
-            dirs[:] = [d for d in dirs if d not in self.exclusions.get("folderNames",[])]
+            dirs = self._skip_directories(dirs)
             for file in files:
-                # Skip files in the skip list
-                if any(file.endswith(ext) for ext in self.exclusions.get("extensions",[])) or file in self.exclusions.get("fileNames", []):
-                    continue
-
                 # Get the full file path
                 file_path = subdir + os.sep + file
+                self._process_file(file, file_path)
 
-                #Skip files in exclusion paths
-                if self.exclusions.get('paths', None):
-                    skipFlag = False
-                    for path in self.exclusions.get('paths', []):
-                        if os.path.commonpath([path, file_path]) == path:
-                            skipFlag = True
-                            break
-                    if skipFlag:
-                        continue
-
-                # Check if the file is already in the database
-                self.cursor.execute("SELECT * FROM files WHERE file_path=?", (file_path,))
-                result = self.cursor.fetchone()
-
-                # Check if the file still exists
-                if os.path.exists(file_path):
-                    # Get the file's hash
-                    file_hash = fileHash(file_path)
-
-                    if result: 
-                        # Clear missing date if exists
-                        if result[3]:
-                            self.cursor.execute("UPDATE files SET missing_date=NULL WHERE file_path=?", (file_path,))
-
-                        # Check if the hash has changed
-                        if file_hash != result[1]:
-                            # update the mismatch date
-                            self.cursor.execute("UPDATE files SET mismatch_date=? WHERE file_path=?", (currentDateTime(), file_path))
-                            print(f'Hash mismatch for {file_path}')
-
-                        else:
-                            if result[4]:
-                                # Clear the mismatch date
-                                self.cursor.execute("UPDATE files SET mismatch_date=NULL WHERE file_path=?", (file_path,))
-                    else:
-                        # Get the initial date
-                        initial_date = currentDateTime()
-
-                        # Get File Type
-                        file_type = determine_file_type(file_path)
-
-                        # Add the file's information to the database
-                        self.cursor.execute("INSERT INTO files (file_path, file_hash, initial_date, file_type) VALUES (?, ?, ?, ?)", (file_path, file_hash, initial_date, file_type))
-                        print(f'New file added {file_path}')
-                else:
-                    # If File is missing
-                    if result:
-                        # Update the database with the missing date
-                        self.cursor.execute("UPDATE files SET missing_date=? WHERE file_path=?", (currentDateTime(), file_path))
-                        print(f'File missing for {file_path}')
         self.conn.commit()
         self.conn.close()
+    
+    def _process_file(self,file,file_path):
+        
+        if self._skip_file(file, file_path):
+            return
+        # Check if the file is already in the database
+        result = self._check_existing_file_in_db(file_path)
+        # Check if the file still exists
+        if os.path.exists(file_path):
+            # Get the file's hash
+            file_hash = fileHash(file_path)
 
+            if result: 
+                self.logger.debug("File found in database")
+                missing_date = result[3]
+                hash_value = result[1]
+                mismatch_date = result[4]
+                self.logger.debug(f"missing_date: {missing_date}, hash_value: {hash_value}, mismatch_date: {mismatch_date}")
+                # Clear missing date if exists
+                if missing_date:
+                    self.logger.debug(f"Clearing existing missing date for  {file_path}")
+                    self._clear_missing_date(file_path)
+
+                # Check if the hash has changed
+                if file_hash != hash_value:
+                    # update the mismatch date
+                    self.logger.info(f'Hash mismatch for {file_path}')
+                    self._update_mismatch_date(file_path)
+                else:
+                    if mismatch_date:
+                        # Clear the mismatch date
+                        self.logger.info(f'Clearing mismatch date for {file_path}')
+                        self._clear_mismatch_date(file_path)
+            else:
+                self.logger.info(f'New file added {file_path}')
+                self._insert_file_record(file_path)
+                
+        else:
+            # If File is missing
+            if result:
+                # Update the database with the missing date
+                self.logger.info(f'File missing for {file_path}')
+                self._update_missing_date(file_path)
+
+    def _skip_file(self, file, file_path):
+        """
+        Check if file should be skipped.
+        """
+        if any(file.endswith(ext) for ext in self.exclusions.get("extensions", [])):
+            return True
+        if file in self.exclusions.get("fileNames", []):
+            return True
+        for path in self.exclusions.get("paths", []):
+            if os.path.commonpath([path, file_path]) == path:
+                return True
+        return False
+
+    def _skip_directories(self, dirs):
+        dirs[:] = [d for d in dirs if d not in self.exclusions.get("folderNames",[])]
+        return dirs
+
+    def _connect_to_db(self):
+        self.connect_db()
+        if not self.conn or not self.cursor:
+            raise Exception("Database connection not established")
+        return True
 
     def get_flagged_files(self, flag = None):
         """
         Returns the records that have either missing or mismatched dates based on the flag passed in. 
         flag = 'missing' or 'mismatch'
         """
-        self.connect_db()
-
-        if not self.conn or not self.cursor:
-            raise Exception("Database connection not established")
+        if not self._connect_to_db():
+            return
 
         if flag == "missing":
             self.cursor.execute("SELECT * FROM files WHERE missing_date IS NOT NULL")
@@ -179,10 +221,8 @@ class HashCheck:
         """
         Returns all files in the database
         """
-        self.connect_db()
-
-        if not self.conn or not self.cursor:
-            raise Exception("Database connection not established")
+        if not self._connect_to_db():
+            return
 
         self.cursor.execute("SELECT * FROM files")
         results = self.cursor.fetchall()
@@ -195,10 +235,8 @@ class HashCheck:
         """
         Returns the records that have the file type that is passed in
         """
-        self.connect_db()
-
-        if not self.conn or not self.cursor:
-            raise Exception("Database connection not established")
+        if not self._connect_to_db():
+            return
 
         self.cursor.execute("SELECT * FROM files WHERE file_type=?", (type,))
         results = self.cursor.fetchall()
@@ -210,10 +248,8 @@ class HashCheck:
         """
         Retrieve records that match the initial date based on a date or datetime that is passed in as an argument.
         """
-        self.connect_db()
-
-        if not self.conn or not self.cursor:
-            raise Exception("Database connection not established")
+        if not self._connect_to_db():
+            return
 
         if isinstance(initial_date, str):
             initial_date = parse_date(initial_date)
@@ -228,8 +264,8 @@ class HashCheck:
         """
         Resets all the fields of the db and re-scan all files
         """
-        if not self.conn or not self.cursor:
-            raise Exception("Database connection not established")
+        if not self._connect_to_db():
+            return
 
         self.cursor.execute("DELETE FROM files")
         self.conn.commit()
@@ -246,41 +282,44 @@ class HashCheck:
             if os.path.isdir(item):
                 for subdir, dirs, files in os.walk(item):
                     # Skip any directories in the skip list
-                    dirs[:] = [d for d in dirs if d not in self.exclusions.get("folderNames",[])]
+                    dirs = self._skip_directories(dirs)
                     for file in files:
-                        # Skip files in the skip list
-                        if any(file.endswith(ext) for ext in self.exclusions.get("extensions",[])) or file in self.exclusions.get("fileNames", []):
-                            continue
                         # Get the full file path
                         file_path = subdir + os.sep + file
-                        # Update the hash and initial date
-                        self._update_hash_initial_date(file_path)
-            elif os.path.isfile(item):
-                # Update the hash and initial date
-                self._update_hash_initial_date(item)
 
-    def _update_hash_initial_date(self,file_path):
+                        # Skip files that are in the exclusion list
+                        if self._skip_file(file,file_path):
+                            continue
+
+                        # Re-initialize the record with the file path
+                        self._reset_file_record(file_path)
+            elif os.path.isfile(item):
+                # Re-initialize the record with the file path
+                self._reset_file_record(item)
+
+    def _reset_file_record(self,file_path):
         """
-        Updates the hash and initial date of a file
+        Updates the hash, initial date and file type of a file, along with clearing the missing and mismatch dates
         """
-        self.connect_db()
-        
-        if not self.conn or not self.cursor:
-            raise Exception("Database connection not established")
+        if not self._connect_to_db():
+            return
 
         # Get the file's hash
         file_hash = fileHash(file_path)
         # Get the file's type
         file_type = determine_file_type(file_path)
-        # Check if the file is already in the database
-        self.cursor.execute("SELECT * FROM files WHERE file_path=?", (file_path,))
-        result = self.cursor.fetchone()
-        if result:
-            # Update the file in the database
-            self.cursor.execute("UPDATE files SET file_hash=?, initial_date=?, missing_date=NULL, mismatch_date=NULL, file_type=? WHERE file_path=?", (file_hash, currentDateTime(), file_type, file_path))
-            self.conn.commit()
+
+
+        # Delete the record from the database
+        self._delete_file_record(file_path)
+
+        # Insert a new record into the database
+        self._insert_file_record(file_path)
 
     def connect_db(self, dbFilePath = None):
+        '''
+        Connects to the sqlite database. If it doesn't exist it creates a new db
+        '''
         if not dbFilePath:
             dbFilePath = os.path.join(self.db_folder_path, self.db_file_name)
         # check if the database file already exists
@@ -294,6 +333,9 @@ class HashCheck:
             raise Exception('Database connection was not established')
 
     def _get_report(self, db_results):
+        '''
+        Returns a json object containing the results of a query
+        '''
         report = {}
 
         for row in db_results:
