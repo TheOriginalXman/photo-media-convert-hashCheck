@@ -8,24 +8,51 @@ from utility.util import get_configurations as getConfig
 
 class PhotoConverter:
     def __init__(self, config_path="../default_config.json", root_path=None):
-        # self.install_dependencies()
+
+        # Load configuration from the given path
         self.config = getConfig(config_path, 'photo')
-        self.root_directories = self.config.get('rootFolderList', [root_path])
+
+        # Get the log file path and name from the config file and setup logger
         self.log_file = os.path.join(self.config.get('logFolderParentFolderPath', None), self.config.get('logFileName', None))
-        self.converted_folder_path = os.path.join(self.config.get('convertedFolderParentFolderPath', ''), self.config.get('convertedFolderName', None))
-        self.converted_folder_name = self.config.get('convertedFolderName', 'conversion')
-        self.exclusions = self.config.get('exclusions',{})
-        self.input_ext = self.config.get('queryExtensions',None)
-        self.output_ext = self.config.get('outputExtension',None)
-        self.root_path = root_path
-        self.root_dir = None
+
         self.logger = logging.getLogger(__name__)
         self.configure_logger()
+        self.logger.debug('Log File Path: {0}'.format(self.log_file))
+
+        # Get the root directories from the config file, if not specified, use the root_path
+        self.root_directories = self.config.get('rootFolderList', [root_path])
+        self.logger.debug('Root Directories: {0}'.format(self.root_directories))
+
+        # Get the converted folder path and name from the config file
+        self.converted_folder_path = os.path.join(self.config.get('convertedFolderParentFolderPath', ''), self.config.get('convertedFolderName', None))
+        self.logger.debug('Converted Folder Path: {0}'.format(self.converted_folder_path))
+        self.converted_folder_name = self.config.get('convertedFolderName', 'conversion')
+
+        # Get the exclusions from the config file
+        self.exclusions = self.config.get('exclusions',{})
+        self.logger.debug('Exclusions: {0}'.format(self.exclusions))
+
+        # Get the input formats from the config file
+        self.input_ext = self.config.get('queryExtensions',None)
+        self.logger.debug('Input Formats: {0}'.format(self.input_ext))
+
+        # Get the output format from the config file
+        self.output_ext = self.config.get('outputExtension',None)
+        self.logger.debug('Output Format: {0}'.format(self.output_ext))
+
+        # Set the root path and root directory
+        self.root_path = root_path
+        self.root_dir = None
+
+        
+        
     
     def configure_logger(self):
+        # dump all log levels to file
         self.logger.setLevel(logging.DEBUG)
+
         # create a file handler to log to a file
-        file_handler = logging.FileHandler(self.log_file)
+        file_handler = logging.FileHandler(self.log_file, mode='a')
         file_handler.setLevel(logging.DEBUG)
 
         # create a formatter for the logs
@@ -72,7 +99,7 @@ class PhotoConverter:
 
         # Start the directory walk
         for dirpath, dirnames, filenames in os.walk(self.root_dir):
-            #Remove all the exclusion folders and files from the directory walk
+            # Remove all the exclusion folders and files from the directory walk
             exclusion_folders = self.exclusions.get('folderNames',[])
             exclusion_folders.append(self.converted_folder_name)
             for folder in exclusion_folders:
@@ -172,11 +199,11 @@ class PhotoConverter:
 
     def convert_heic_mac(self, input_file, output_file, output_format):
         # Convert the HEIC file to JPG
-        print('Converting HEIC on Mac')
+        self.logger.debug('Converting HEIC on Mac')
         try:
             subprocess.run(['sips', '-s', 'format', output_format, input_file, '--out', output_file])
         except subprocess.CalledProcessError as e:
-            print(f'[{datetime.datetime.now()}] Error converting {input_file} to {output_file}. Error: {e}\n')
+            self.logger.error(f'Error converting {input_file} to {output_file}. Error: {e}\n')
     
     def convert_img(self, input_file, output_file, output_format):
         # Convert the input file to the output format
@@ -184,24 +211,31 @@ class PhotoConverter:
             with Image.open(input_file) as img:
                 img.save(output_file, format=output_format)
         except Exception as e:
-            print(f'[{datetime.datetime.now()}] Error converting {input_file} to {output_file}. Error: {e}\n')
+            self.logger.error(f'Error converting {input_file} to {output_file}. Error: {e}\n')
 
     def convert(self, input_formats = None, output_format = None):
 
+        # if input_formats are not specified, use the input_ext attribute of the class
         if not input_formats:
             input_formats = self.input_ext
+        # if output_format is not specified, use the output_ext attribute of the class
         if not output_format:
             output_format = self.output_ext
-
+            
+        # Check if root directories have been specified in the config
         if self.root_directories:
+            # If root directories have been specified, loop through each root directory
             if len(self.root_directories) > 0:
                 for root in self.root_directories:
                     self.root_dir = root
                     self._convert(input_formats, output_format)
             else:
-                print('No root directories specified in config')
+                # If no root directories have been specified, log the error
+                self.logger.error('No root directories specified in config')
+        # If root path has been specified, use that
         elif self.root_path:
             self.root_dir = self.root_path
             self._convert(input_formats, output_format)
+
         
     
