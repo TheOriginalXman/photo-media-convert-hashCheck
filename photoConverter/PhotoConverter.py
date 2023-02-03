@@ -7,7 +7,7 @@ from utility.util import get_configurations as getConfig
 
 class PhotoConverter:
     def __init__(self, config_path="../default_config.json", root_path=None):
-        self.install_dependencies()
+        # self.install_dependencies()
         self.config = getConfig(config_path, 'photo')
         self.root_directories = self.config.get('rootFolderList', [root_path])
         self.log_file = os.path.join(self.config.get('logFolderParentFolderPath', None), self.config.get('logFileName', None))
