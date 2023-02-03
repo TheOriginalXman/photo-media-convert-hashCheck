@@ -23,6 +23,7 @@ class VideoConverter:
         self.root_dir = None
         self.output_ext = self.config.get('outputExtension',None)
         
+        formatter = logging.Formatter('%(asctime)s - %(process)d - %(thread)d - %(name)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s')
     def check_requirements(self):
         try:
             subprocess.run(['ffmpeg', '-version'], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

@@ -56,7 +56,7 @@ class PhotoConverter:
         file_handler.setLevel(logging.DEBUG)
 
         # create a formatter for the logs
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        formatter = logging.Formatter('%(asctime)s - %(process)d - %(thread)d - %(name)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s')
         file_handler.setFormatter(formatter)
 
         # add the file handler to the logger
