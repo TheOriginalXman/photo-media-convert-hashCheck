@@ -16,7 +16,7 @@ class PhotoConverter:
         self.log_file = os.path.join(self.config.get('logFolderParentFolderPath', None), self.config.get('logFileName', None))
 
         self.logger = logging.getLogger(__name__)
-        self.configure_logger()
+        self._configure_logger()
         self.logger.debug('Log File Path: {0}'.format(self.log_file))
 
         # Get the root directories from the config file, if not specified, use the root_path
@@ -47,7 +47,7 @@ class PhotoConverter:
         
         
     
-    def configure_logger(self):
+    def _configure_logger(self):
         # dump all log levels to file
         self.logger.setLevel(logging.DEBUG)
 
