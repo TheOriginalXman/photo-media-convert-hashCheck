@@ -49,18 +49,32 @@ class HashCheck:
 
         # check if the database file already exists
         if os.path.exists(dbFilePath):
+            self.logger.debug(f"The database file already exists at {dbFilePath}")
             return
+        
+        self.logger.info(f"Creating a new database file at {dbFilePath}")
+        
         # create the database file and table
         self.conn = sqlite3.connect(dbFilePath)
         self.cursor = self.conn.cursor()
+        
         # Read the schema file
-        with open("hashCheck/hash_db_schema.sql", "r") as f:
-            schema = f.read()
-
+        try:
+            with open("hashCheck/hash_db_schema.sql", "r") as f:
+                schema = f.read()
+        except Exception as e:
+            self.logger.error(f"Error reading schema file: {e}")
+            return
+        
         # Execute the SQL commands in the schema file
-        self.cursor.executescript(schema)
-
+        try:
+            self.cursor.executescript(schema)
+        except Exception as e:
+            self.logger.error(f"Error executing schema script: {e}")
+            return
+        
         self.conn.commit()
+        self.logger.info(f"Database file created successfully at {dbFilePath}")
 
     def scan_and_hash_files(self):
         """
@@ -111,23 +125,40 @@ class HashCheck:
         Scans all files in the root directory and nested subdirectories, 
         gets their hashes, and saves the information to db.
         """
+        # Check if root directory is specified and exists
         if not self.root_dir or not os.path.exists(self.root_dir):
+            self.logger.error('Root directory not found')
             print('Root directory not found')
             return
+
+        # Connect to the database
         if not self._connect_to_db():
+            self.logger.error('Failed to connect to the database')
             return
+
+        self.logger.info(f'Scanning directory: {self.root_dir}')
 
         # Walk through all files and directories in the root directory
         for subdir, dirs, files in os.walk(self.root_dir):
             # Skip any directories in the skip list
             dirs = self._skip_directories(dirs)
+            self.logger.debug(f"Directories to be skipped: {dirs}")
+
             for file in files:
                 # Get the full file path
                 file_path = subdir + os.sep + file
+
+                # Log the current file being processed
+                self.logger.info(f'Processing file: {file_path}')
+
+                # Process the file
                 self._process_file(file, file_path)
 
+        # Commit changes and close the database connection
         self.conn.commit()
+        self.logger.info('Committed changes to the database')
         self.conn.close()
+        self.logger.info('Closed database connection')
     
     def _process_file(self,file,file_path):
         
