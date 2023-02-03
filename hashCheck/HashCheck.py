@@ -112,7 +112,7 @@ class HashCheck:
     def _clear_mismatch_date(self, file_path):
         self.cursor.execute("UPDATE files SET mismatch_date=NULL WHERE file_path=?", (file_path,))
 
-    def _insert_file_record(self, file_path):
+    def _insert_file_record(self, file_path, file_hash):
         # Get the initial date
         initial_date = currentDateTime()
 
@@ -121,7 +121,7 @@ class HashCheck:
 
         # Add the file's information to the database
         self.cursor.execute("INSERT INTO files (file_path, file_hash, initial_date, file_type) VALUES (?, ?, ?, ?)", (file_path, file_hash, initial_date, file_type))
-        self.cursor.commit()
+        self.conn.commit()
 
     def _delete_file_record(self, file_path):
         self.cursor.execute("DELETE FROM files WHERE file_path=?", (file_path,))
@@ -201,7 +201,7 @@ class HashCheck:
                         self._clear_mismatch_date(file_path)
             else:
                 self.logger.info(f'New file added {file_path}')
-                self._insert_file_record(file_path)
+                self._insert_file_record(file_path, file_hash)
                 
         else:
             # If File is missing
@@ -441,7 +441,7 @@ class HashCheck:
         self.logger.info("Deleted record for file: {}".format(file_path))
 
         # Insert a new record into the database
-        self._insert_file_record(file_path)
+        self._insert_file_record(file_path, file_hash)
         self.logger.info("Inserted new record for file: {}".format(file_path))
 
     def connect_db(self, dbFilePath = None):
