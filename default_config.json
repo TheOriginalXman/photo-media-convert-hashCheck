@@ -21,6 +21,7 @@
         "rootFolderList" : [],
         "logFileName" : "",
         "logFolderParentFolderPath" : "",
+        "singleFileLog" : true,
         "convertedFolderName" : "MP4_Converted_Videos",
         "convertedFolderParentFolderPath" : "",
         "outputExtension" : "mp4"
@@ -35,6 +36,7 @@
         "rootFolderList" : [],
         "logFileName" : "",
         "logFolderParentFolderPath" : "",
+        "singleFileLog" : true,
         "convertedFolderName" : "JPG_Converted_Photos",
         "convertedFolderParentFolderPath" : "",
         "queryExtensions" : ["heic"],
@@ -50,6 +52,7 @@
         "rootFolderList" : [],
         "logFileName" : "",
         "logFolderParentFolderPath" : "",
+        "singleFileLog" : false,
         "dbFile" : "File_DB.db",
         "dbFileParentFolderPath" : "./"
     }
