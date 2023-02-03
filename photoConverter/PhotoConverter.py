@@ -86,78 +86,89 @@ class PhotoConverter:
             
             self.logger.debug('Removed Excluded Files')
 
-            # Get the converted folder path
-            jpg_folder = os.path.join(dirpath, self.converted_folder_name)
-            if self.config.get('convertedFolderParentFolderPath',None):
-                jpg_folder = self.converted_folder_path
-
-            self.logger.debug('Output Folder Path: {0}'.format(jpg_folder))
+            self._convert_process_directories(dirpath, filenames, input_formats, output_format)
             
-            # Loop through all the files in the directory
-            for file in filenames:
-                # Get the full path of the input file
-                input_file = os.path.join(dirpath, file)
-                self.logger.debug('Input File Path: {0}'.format(input_file))
+    def _convert_process_directories(self,dirpath,filenames, input_formats, output_format):
+        self.logger.debug('Processing Directories')
+        # Get the converted folder path
+        output_folder = os.path.join(dirpath, self.converted_folder_name)
+        if self.config.get('convertedFolderParentFolderPath',None):
+            output_folder = self.converted_folder_path
 
-                # Get file extension
-                extension = os.path.splitext(file)[1].lower()
-                self.logger.debug('Extension: {0}'.format(extension))
+        self.logger.debug('Output Folder Path: {0}'.format(output_folder))
 
-                # Check if the file needs to be excluded based on file extension
-                if extension in self.exclusions.get('extensions', []):
-                    self.logger.debug('Excluded based on file extension')
-                    continue
+        # Loop through all the files in the directory
+        for file in filenames:
+            self._convert_process_file(dirpath, file, input_formats, output_format, output_folder)
 
-                # Check if the file needs to be excluded based on exclusion paths provided
-                if self.exclusions.get('paths', None):
-                    skipFlag = False
-                    for path in self.exclusions.get('paths', []):
-                        if os.path.commonpath([path, input_file]) == path:
-                            skipFlag = True
-                            break
-                    if skipFlag:
-                        print('Excluded file being in an excluded path')
-                        continue
+    def _convert_process_file(self, dirpath, file, input_formats, output_format, output_folder):
+        # Get the full path of the input file
+        input_file = os.path.join(dirpath, file)
+        self.logger.debug('Input File Path: {0}'.format(input_file))
 
-                # Check if the file extension is in the list of input formats
-                if extension[1:] in input_formats:
-                    print('Extension in input formats list')
-                    #Create the converted photo folder if it doesn't exist'
-                    if not os.path.exists(jpg_folder):
-                        os.mkdir(jpg_folder)
-                        print('Photo conversion folder created')
-                    
-                    # Get the output file name
-                    output_file = os.path.join(jpg_folder, file.replace(extension, '.' + output_format).replace(extension.upper(), '.' + output_format))
-                    print('output_file: {}'.format(output_file))
-                    # Check if the output file already exists
-                    if os.path.exists(output_file):
-                        print('Output file already exists')
-                        continue
+        # Get file extension
+        extension = os.path.splitext(file)[1].lower()
+        self.logger.debug('Extension: {0}'.format(extension))
 
-                    if(extension == '.heic'):
-                        # self.convert_heic_linux(input_file, output_file,output_format)
-                        if platform.system() == "Darwin":
-                            self.convert_heic_mac(input_file, output_file,output_format)
-                        elif platform.system() == "Linux":
-                            self.convert_heic_linux(input_file, output_file,output_format)
-                    else:
-                        self.convert_img(input_file, output_file, output_format)
-                
-                else:
-                    print('Skipping extension is not in input formats list')
-                    continue
-    
+        if self._is_file_excluded(extension,input_file, input_formats):
+            self.logger.debug('File excluded: {0}'.format(input_file))
+            return
+
+        # Create the converted photo folder if it doesn't exist
+        if not os.path.exists(output_folder):
+            os.mkdir(output_folder)
+            self.logger.info('Photo conversion folder created: {0}'.format(output_folder))
+            print('Photo conversion folder created')
+        
+        # Get the output file name
+        output_file = os.path.join(output_folder, file.replace(extension, '.' + output_format).replace(extension.upper(), '.' + output_format))
+        self.logger.debug('Output file: {0}'.format(output_file))
+        # Check if the output file already exists
+        if os.path.exists(output_file):
+            self.logger.debug('Output file already exists: {0}'.format(output_file))
+            return
+        self.logger.info('Converting Image')
+        # Convert the file based on the file extension
+        if(extension == '.heic'):
+            if platform.system() == "Darwin":
+                self.convert_heic_mac(input_file, output_file,output_format)
+            elif platform.system() == "Linux":
+                self.convert_heic_linux(input_file, output_file,output_format)
+        else:
+            self.convert_img(input_file, output_file, output_format)
+
+    def _is_file_excluded(self, extension, input_file, input_formats):
+        # Check if the file needs to be excluded based on file extension
+        if extension in self.exclusions.get('extensions', []):
+            self.logger.debug('Excluded based on file extension')
+            return True
+
+        # Check if the file needs to be excluded based on exclusion paths provided
+        if self.exclusions.get('paths', None):
+            skipFlag = False
+            for path in self.exclusions.get('paths', []):
+                if os.path.commonpath([path, input_file]) == path:
+                    skipFlag = True
+                    break
+            if skipFlag:
+                self.logger.debug('Excluded. File path with exclusion path')
+                return True
+        
+        # Check if the file extension is in the list of input formats
+        if extension[1:] not in input_formats:
+            self.logger.debug('Skipping extension is not in input formats list')
+            return True
+
     def convert_heic_linux(self, input_file, output_file, output_format):
         # Convert the HEIC file to JPG
-        print('Converting HEIC on Linux')
+        self.logger.debug('Converting HEIC on Linux')
         try:
             if(output_format in ['png', 'jpg','jpeg']):
                 subprocess.run(['heif-convert', '-q', '100', input_file, output_file])
             else:
-                print('conversion not supported')
+                self.logger.warning('conversion not supported')
         except subprocess.CalledProcessError as e:
-            print(f'[{datetime.datetime.now()}] Error converting {input_file} to {output_file}. Error: {e}\n')
+            self.logger.error(f'Error converting {input_file} to {output_file}. Error: {e}\n')
 
     def convert_heic_mac(self, input_file, output_file, output_format):
         # Convert the HEIC file to JPG
