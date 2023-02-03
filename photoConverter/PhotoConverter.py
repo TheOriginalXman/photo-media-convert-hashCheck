@@ -2,6 +2,7 @@ import os
 import datetime
 import subprocess
 import platform
+import logging
 from PIL import Image
 from utility.util import get_configurations as getConfig 
 
@@ -18,6 +19,21 @@ class PhotoConverter:
         self.output_ext = self.config.get('outputExtension',None)
         self.root_path = root_path
         self.root_dir = None
+        self.logger = logging.getLogger(__name__)
+        self.configure_logger()
+    
+    def configure_logger(self):
+        self.logger.setLevel(logging.DEBUG)
+        # create a file handler to log to a file
+        file_handler = logging.FileHandler(self.log_file)
+        file_handler.setLevel(logging.DEBUG)
+
+        # create a formatter for the logs
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        file_handler.setFormatter(formatter)
+
+        # add the file handler to the logger
+        self.logger.addHandler(file_handler)
         
     def install_dependencies(self):
         if platform.system() == "Darwin":
@@ -34,28 +50,27 @@ class PhotoConverter:
             raise Exception("libheif installation not supported on this platform.")
 
     def _convert(self, input_formats = None, output_format = None):
-        # Create the log file if it doesn't exist
-        if not os.path.exists(self.log_file):
-            with open(self.log_file, 'w'):
-                pass
-
+        # Check if there are no input formats defined
         if not input_formats or len(input_formats) == 0:
-            print('No input formats defined')
+            self.logger.error('No input formats defined')
             return
+        # Check if there is no output format defined
         elif output_format == None:
-            print('No output format defined')
+            self.logger.error('No output format defined')
             return
+        # Check if the root directory does not exist
         elif not self.root_dir or not os.path.exists(self.root_dir):
-            print('Root directory not found')
+            self.logger.error('Root directory not found')
             return
         
         # Make sure the output format is in lowercase
         output_format = output_format.lower()
-        print('Output format: %s' % output_format)
+        self.logger.debug('Output format: %s' % output_format)
         # Make sure all input formats are in lowercase
         input_formats = [f.lower() for f in input_formats]
-        print('Input formats: %s' % input_formats)
+        self.logger.debug('Input formats: %s' % input_formats)
 
+        # Start the directory walk
         for dirpath, dirnames, filenames in os.walk(self.root_dir):
             #Remove all the exclusion folders and files from the directory walk
             exclusion_folders = self.exclusions.get('folderNames',[])
@@ -63,32 +78,34 @@ class PhotoConverter:
             for folder in exclusion_folders:
                 if folder in dirnames:
                     dirnames.remove(folder)
-            print('Removed Excluded Folders')
+            self.logger.debug('Removed Excluded Folders')
             exclusion_files = self.exclusions.get('fileNames',[])
             for file in exclusion_files:
                 if file in filenames:
                     filenames.remove(file)
             
-            print('Removed Excluded Files')
+            self.logger.debug('Removed Excluded Files')
 
+            # Get the converted folder path
             jpg_folder = os.path.join(dirpath, self.converted_folder_name)
             if self.config.get('convertedFolderParentFolderPath',None):
                 jpg_folder = self.converted_folder_path
 
-            print('Output Folder Path: {0}'.format(jpg_folder))
+            self.logger.debug('Output Folder Path: {0}'.format(jpg_folder))
             
+            # Loop through all the files in the directory
             for file in filenames:
                 # Get the full path of the input file
                 input_file = os.path.join(dirpath, file)
-                print('Input File Path: {0}'.format(input_file))
+                self.logger.debug('Input File Path: {0}'.format(input_file))
 
                 # Get file extension
                 extension = os.path.splitext(file)[1].lower()
-                print('Extension: {0}'.format(extension))
+                self.logger.debug('Extension: {0}'.format(extension))
 
                 # Check if the file needs to be excluded based on file extension
                 if extension in self.exclusions.get('extensions', []):
-                    print('Excluded based on file extension')
+                    self.logger.debug('Excluded based on file extension')
                     continue
 
                 # Check if the file needs to be excluded based on exclusion paths provided
@@ -140,9 +157,7 @@ class PhotoConverter:
             else:
                 print('conversion not supported')
         except subprocess.CalledProcessError as e:
-            # Log the error
-            with open(self.log_file, 'a') as f:
-                f.write(f'[{datetime.datetime.now()}] Error converting {input_file} to {output_file}. Error: {e}\n')
+            print(f'[{datetime.datetime.now()}] Error converting {input_file} to {output_file}. Error: {e}\n')
 
     def convert_heic_mac(self, input_file, output_file, output_format):
         # Convert the HEIC file to JPG
@@ -150,9 +165,7 @@ class PhotoConverter:
         try:
             subprocess.run(['sips', '-s', 'format', output_format, input_file, '--out', output_file])
         except subprocess.CalledProcessError as e:
-            # Log the error
-            with open(self.log_file, 'a') as f:
-                f.write(f'[{datetime.datetime.now()}] Error converting {input_file} to {output_file}. Error: {e}\n')
+            print(f'[{datetime.datetime.now()}] Error converting {input_file} to {output_file}. Error: {e}\n')
     
     def convert_img(self, input_file, output_file, output_format):
         # Convert the input file to the output format
@@ -160,9 +173,7 @@ class PhotoConverter:
             with Image.open(input_file) as img:
                 img.save(output_file, format=output_format)
         except Exception as e:
-            # Log the error
-            with open(self.log_file, 'a') as f:
-                f.write(f'[{datetime.datetime.now()}] Error converting {input_file} to {output_file}. Error: {e}\n')
+            print(f'[{datetime.datetime.now()}] Error converting {input_file} to {output_file}. Error: {e}\n')
 
     def convert(self, input_formats = None, output_format = None):
 
