@@ -172,9 +172,12 @@ class PhotoConverter:
             output_format = self.output_ext
 
         if self.root_directories:
-            for root in self.root_directories:
-                self.root_dir = root
-                self._convert(input_formats, output_format)
+            if len(self.root_directories) > 0:
+                for root in self.root_directories:
+                    self.root_dir = root
+                    self._convert(input_formats, output_format)
+            else:
+                print('No root directories specified in config')
         elif self.root_path:
             self.root_dir = self.root_path
             self._convert(input_formats, output_format)
