@@ -10,12 +10,18 @@ from utility.util import get_configurations as getConfig
 
 class VideoConverter:
     def __init__(self, config_path="../default_config.json", root_path=None):
-        if not self.check_requirements():
-            self.install_requirements()
-
+        
+        # Load configuration from the given path
         self.config = getConfig(config_path, 'video')
-        self.root_directories = self.config.get('rootFolderList', [root_path])
+# Get the log file path and name from the config file and setup logger
         self.log_file = os.path.join(self.config.get('logFolderParentFolderPath', None), self.config.get('logFileName', None))
+
+        self.logger = logging.getLogger(__name__)
+        self.configure_logger()
+        self.logger.debug('Log File Path: {0}'.format(self.log_file))
+
+        self.check_requirements()
+        self.root_directories = self.config.get('rootFolderList', [root_path])
         self.converted_folder_path = os.path.join(self.config.get('convertedFolderParentFolderPath', ''), self.config.get('convertedFolderName', None))
         self.converted_folder_name = self.config.get('convertedFolderName', 'conversion')
         self.exclusions = self.config.get('exclusions',{})
@@ -23,13 +29,27 @@ class VideoConverter:
         self.root_dir = None
         self.output_ext = self.config.get('outputExtension',None)
         
+    def configure_logger(self):
+        # dump all log levels to file
+        self.logger.setLevel(logging.DEBUG)
+
+        # create a file handler to log to a file
+        file_handler = logging.FileHandler(self.log_file, mode='a')
+        file_handler.setLevel(logging.DEBUG)
+
+        # create a formatter for the logs
         formatter = logging.Formatter('%(asctime)s - %(process)d - %(thread)d - %(name)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s')
+        file_handler.setFormatter(formatter)
+
+        # add the file handler to the logger
+        self.logger.addHandler(file_handler)
+
     def check_requirements(self):
         try:
             subprocess.run(['ffmpeg', '-version'], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            return True
+            print('ffmpeg is installed')
         except Exception as e:
-            return False
+            print('ffmpeg not installed: install using function install requirements or via cli for your platform')
 
     def install_requirements(self):
         try:
