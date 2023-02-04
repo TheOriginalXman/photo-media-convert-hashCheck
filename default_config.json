@@ -8,7 +8,8 @@
         },
         "rootFolderList" : [],
         "logFileName" : "logFolder",
-        "logFolderParentFolderPath" : "./"
+        "logFolderParentFolderPath" : "./",
+        "logLevel" : "INFO"
     },
 
     "video" : {
@@ -21,6 +22,7 @@
         "rootFolderList" : [],
         "logFileName" : "",
         "logFolderParentFolderPath" : "",
+        "logLevel" : "INFO",
         "singleFileLog" : true,
         "convertedFolderName" : "MP4_Converted_Videos",
         "convertedFolderParentFolderPath" : "",
@@ -36,6 +38,7 @@
         "rootFolderList" : [],
         "logFileName" : "",
         "logFolderParentFolderPath" : "",
+        "logLevel" : "INFO",
         "singleFileLog" : true,
         "convertedFolderName" : "JPG_Converted_Photos",
         "convertedFolderParentFolderPath" : "",
@@ -52,6 +55,7 @@
         "rootFolderList" : [],
         "logFileName" : "",
         "logFolderParentFolderPath" : "",
+        "logLevel" : "INFO",
         "singleFileLog" : false,
         "dbFile" : "File_DB.db",
         "dbFileParentFolderPath" : "./"

@@ -27,7 +27,13 @@ class HashCheck:
 
     def _configure_logger(self):
         # dump all log levels to file
-        self.logger.setLevel(logging.DEBUG)
+        log_level = self.config.get('logLevel', "INFO")
+
+        numeric_log_level = getattr(logging, log_level.upper(), None)
+        if not isinstance(numeric_log_level, int):
+            raise ValueError("Invalid log level: %s" % log_level)
+
+        self.logger.setLevel(numeric_log_level)
 
         # create a file handler to log to a file
         file_handler = None
@@ -38,7 +44,7 @@ class HashCheck:
         else:
             file_handler = logging.FileHandler(self.log_file + currentDateTime(), mode='w')
             
-        file_handler.setLevel(logging.DEBUG)
+        file_handler.setLevel(numeric_log_level)
 
         # create a formatter for the logs
         formatter = logging.Formatter('%(asctime)s - %(process)d - %(thread)d - %(name)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s')

@@ -48,7 +48,13 @@ class PhotoConverter:
 
     def _configure_logger(self):
         # dump all log levels to file
-        self.logger.setLevel(logging.DEBUG)
+        log_level = self.config.get('logLevel', "INFO")
+
+        numeric_log_level = getattr(logging, log_level.upper(), None)
+        if not isinstance(numeric_log_level, int):
+            raise ValueError("Invalid log level: %s" % log_level)
+
+        self.logger.setLevel(numeric_log_level)
 
         # create a file handler to log to a file
         file_handler = None
@@ -59,7 +65,7 @@ class PhotoConverter:
         else:
             file_handler = logging.FileHandler(self.log_file + currentDateTime(), mode='w')
 
-        file_handler.setLevel(logging.DEBUG)
+        file_handler.setLevel(numeric_log_level)
 
         # create a formatter for the logs
         formatter = logging.Formatter('%(asctime)s - %(process)d - %(thread)d - %(name)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s')
@@ -137,7 +143,7 @@ class PhotoConverter:
     def _convert_process_file(self, dirpath, file, input_formats, output_format, output_folder):
         # Get the full path of the input file
         input_file = os.path.join(dirpath, file)
-        self.logger.debug('Input File Path: {0}'.format(input_file))
+        self.logger.info('Input File Path: {0}'.format(input_file))
 
         # Get file extension
         extension = os.path.splitext(file)[1].lower()
@@ -155,7 +161,7 @@ class PhotoConverter:
         
         # Get the output file name
         output_file = os.path.join(output_folder, file.replace(extension, '.' + output_format).replace(extension.upper(), '.' + output_format))
-        self.logger.debug('Output file: {0}'.format(output_file))
+        self.logger.info('Output file: {0}'.format(output_file))
         # Check if the output file already exists
         if os.path.exists(output_file):
             self.logger.debug('Output file already exists: {0}'.format(output_file))
