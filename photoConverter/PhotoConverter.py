@@ -3,10 +3,12 @@ import shutil
 import subprocess
 import platform
 import logging
+import multiprocessing
 from PIL import Image
+import sys
+sys.path.insert(0, '/Users/prajanchauhan/Documents/Personal/Photos and Media/')
 from utility.util import get_configurations as getConfig 
 from utility.dateTime import get_current_datetime_string as currentDateTime
-
 
 class PhotoConverter:
     def __init__(self, config_path="../default_config.json", root_path=None):
