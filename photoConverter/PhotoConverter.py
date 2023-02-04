@@ -3,10 +3,12 @@ import datetime
 import subprocess
 import platform
 import logging
+import multiprocessing
 from PIL import Image
+import sys
+sys.path.insert(0, '/Users/prajanchauhan/Documents/Personal/Photos and Media/')
 from utility.util import get_configurations as getConfig 
 from utility.dateTime import get_current_datetime_string as currentDateTime
-
 
 class PhotoConverter:
     def __init__(self, config_path="../default_config.json", root_path=None):
@@ -46,9 +48,79 @@ class PhotoConverter:
         self.root_path = root_path
         self.root_dir = None
 
+        self.numberOfWorkers = 10
+        # initialize the queue for storing root directories
+        self.root_dir_queue = multiprocessing.Queue()
+
+        # initialize the worker pool
+        self.workers = [multiprocessing.Process(target=self.process_root_dir)
+                        for _ in range(self.numberOfWorkers)]
+
+        # start the workers
+        for worker in self.workers:
+            worker.start()
+
+        # add the root directories to the queue
+        self.root_directories = self.config.get('rootFolderList', [root_path])
+        for root_dir in self.root_directories:
+            self.root_dir_queue.put(root_dir)
+
+    def process_root_dir(self):
+        while True:
+            root_dir = self.root_dir_queue.get()
+            self._process_directory_o(root_dir)
+            self.root_dir_queue.task_done()
+
+    def _process_directory_o(self, root_dir):
+        for subdir, dirs, files in os.walk(root_dir):
+            for file in files:
+                file_path = os.path.join(subdir, file)
+                if file_path.endswith('.heic') or file_path.endswith('.HEIC'):
+                    self.convert(file_path)
+            for dir in dirs:
+                self.root_dir_queue.put(os.path.join(subdir, dir))
+
+    def convert_o(self, file_path):
+        # perform the conversion
+        # ...
+        pass
+    def close(self):
+        # mark the queue as finished
+        self.root_dir_queue.join()
+
+        # stop the workers
+        for worker in self.workers:
+            worker.terminate()
         
-        
-    
+    def _convert_file(self, file_path):
+        try:
+            image = Image.open(file_path)
+            output_path = os.path.splitext(file_path)[0] + "." + self.output_format.lower()
+            image.save(output_path)
+        except Exception as e:
+            print(f"Error converting file {file_path}: {str(e)}")
+
+    def _process_directory(self, directory):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.worker_count) as executor:
+            futures = []
+            for root, dirs, files in os.walk(directory):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    if file_path.endswith(".heic") or file_path.endswith(".HEIC"):
+                        futures.append(executor.submit(self._convert_file, file_path))
+                for dir in dirs:
+                    self.directory_queue.put(os.path.join(root, dir))
+            concurrent.futures.wait(futures)
+
+    def run(self):
+        self.directory_queue = concurrent.futures.Queue()
+        for directory in self.root_directories:
+            self.directory_queue.put(directory)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.worker_count) as executor:
+            while not self.directory_queue.empty():
+                directory = self.directory_queue.get()
+                executor.submit(self._process_directory, directory)
+
     def _configure_logger(self):
         # dump all log levels to file
         self.logger.setLevel(logging.DEBUG)
@@ -247,4 +319,5 @@ class PhotoConverter:
             self._convert(input_formats, output_format)
 
         
-    
+pc = PhotoConverter("/Users/prajanchauhan/Documents/Personal/Photos and Media/config.json")
+pc.run()
