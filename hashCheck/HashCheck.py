@@ -275,7 +275,6 @@ class HashCheck:
         report = self._get_report(results)
         return report
 
-
     def get_all_files(self):
         """
         Returns all files in the database

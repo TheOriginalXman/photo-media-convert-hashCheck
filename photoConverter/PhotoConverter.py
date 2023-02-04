@@ -46,9 +46,6 @@ class PhotoConverter:
         self.root_path = root_path
         self.root_dir = None
 
-        
-        
-    
     def _configure_logger(self):
         # dump all log levels to file
         self.logger.setLevel(logging.DEBUG)
