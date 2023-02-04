@@ -179,7 +179,7 @@ class PhotoConverter:
         if(os.path.exists(output_file)):
             self.logger.info('Successfully Converted Photo')
         else:
-            self.logger.info('Failed to convert file: {}'.format(input_file))
+            self.logger.warning('Failed to convert file: {}'.format(input_file))
 
     def _is_file_excluded(self, extension, input_file, input_formats):
         # Check if the file needs to be excluded based on file extension
