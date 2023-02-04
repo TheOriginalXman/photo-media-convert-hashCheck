@@ -198,4 +198,7 @@ class VideoConverter:
                 except subprocess.CalledProcessError as e:
                     self.logger.error('Error while converting Error: {e}\n')
 
-
+                if(os.path.exists(target_file_path)):
+                    self.logger.info('Successfully Converted Video')
+                else:
+                    self.logger.info('Failed to convert file: {}'.format(file_path))

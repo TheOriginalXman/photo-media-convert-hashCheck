@@ -172,6 +172,11 @@ class PhotoConverter:
                 self.convert_heic_linux(input_file, output_file,output_format)
         else:
             self.convert_img(input_file, output_file, output_format)
+        
+        if(os.path.exists(output_file)):
+            self.logger.info('Successfully Converted Photo')
+        else:
+            self.logger.info('Failed to convert file: {}'.format(input_file))
 
     def _is_file_excluded(self, extension, input_file, input_formats):
         # Check if the file needs to be excluded based on file extension
