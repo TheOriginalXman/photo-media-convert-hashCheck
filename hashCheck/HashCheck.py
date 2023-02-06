@@ -25,9 +25,22 @@ class HashCheck:
         self.cursor = None
         self.connect_db(db_file_path)
 
+        self.clear_missing_date = []
+        self.update_mismatch_date = []
+        self.clear_mismatch_date = []
+        self.update_missing_date = []
+        self.insert_file_record = []
+        self.delete_file_record = []
+
     def _configure_logger(self):
         # dump all log levels to file
-        self.logger.setLevel(logging.DEBUG)
+        log_level = self.config.get('logLevel', "INFO")
+
+        numeric_log_level = getattr(logging, log_level.upper(), None)
+        if not isinstance(numeric_log_level, int):
+            raise ValueError("Invalid log level: %s" % log_level)
+
+        self.logger.setLevel(numeric_log_level)
 
         # create a file handler to log to a file
         file_handler = None
@@ -36,16 +49,23 @@ class HashCheck:
         if self.config.get('singleFileLog', False):
             file_handler = logging.FileHandler(self.log_file, mode='a')
         else:
-            file_handler = logging.FileHandler(self.log_file + currentDateTime(), mode='w')
-            
-        file_handler.setLevel(logging.DEBUG)
+            file_handler = logging.FileHandler(currentDateTime() + ' ' + self.log_file , mode='w')
+
+        file_handler.setLevel(numeric_log_level)
+
+        # create a console handler to log to the console
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
 
         # create a formatter for the logs
-        formatter = logging.Formatter('%(asctime)s - %(process)d - %(thread)d - %(name)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s')
-        file_handler.setFormatter(formatter)
-
+        file_formatter = logging.Formatter('%(asctime)s - %(process)d - %(thread)d - %(name)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s')
+        console_formatter = logging.Formatter('%(asctime)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s')
+        file_handler.setFormatter(file_formatter)
+        console_handler.setFormatter(console_formatter)
         # add the file handler to the logger
         self.logger.addHandler(file_handler)
+        self.logger.addHandler(console_handler)
+
 
     def create_db(self):
         """
@@ -96,36 +116,22 @@ class HashCheck:
                 self.root_dir = root
                 self._scan_and_hash_files()
 
-    def _check_existing_file_in_db(self, file_path):
-        self.cursor.execute("SELECT * FROM files WHERE file_path=?", (file_path,))
-        return self.cursor.fetchone()
+    def _crud_db(self):
+        self._connect_to_db()
+        self._clear_missing_date()
+        self._update_missing_date()
+        self._update_mismatch_date()
+        self._clear_mismatch_date()
+        self._insert_file_record()
+        self._delete_file_record()
 
-    def _clear_missing_date(self, file_path):
-        self.cursor.execute("UPDATE files SET missing_date=NULL WHERE file_path=?", (file_path,))
-
-    def _update_missing_date(self, file_path):
-        self.cursor.execute("UPDATE files SET missing_date=? WHERE file_path=?", (currentDateTime(), file_path))
-
-    def _update_mismatch_date(self, file_path):
-        self.cursor.execute("UPDATE files SET mismatch_date=? WHERE file_path=?", (currentDateTime(), file_path))
-    
-    def _clear_mismatch_date(self, file_path):
-        self.cursor.execute("UPDATE files SET mismatch_date=NULL WHERE file_path=?", (file_path,))
-
-    def _insert_file_record(self, file_path, file_hash):
-        # Get the initial date
-        initial_date = currentDateTime()
-
-        # Get File Type
-        file_type = determine_file_type(file_path)
-
-        # Add the file's information to the database
-        self.cursor.execute("INSERT INTO files (file_path, file_hash, initial_date, file_type) VALUES (?, ?, ?, ?)", (file_path, file_hash, initial_date, file_type))
-        self.conn.commit()
-
-    def _delete_file_record(self, file_path):
-        self.cursor.execute("DELETE FROM files WHERE file_path=?", (file_path,))
-        self.conn.commit()
+        self.connect_to_db = []
+        self.clear_missing_date = []
+        self.update_missing_date = []
+        self.update_mismatch_date = []
+        self.clear_mismatch_date = []
+        self.insert_file_record = []
+        self.delete_file_record = []
 
     def _scan_and_hash_files(self):
         """
@@ -135,7 +141,6 @@ class HashCheck:
         # Check if root directory is specified and exists
         if not self.root_dir or not os.path.exists(self.root_dir):
             self.logger.error('Root directory not found')
-            print('Root directory not found')
             return
 
         # Connect to the database
@@ -143,29 +148,28 @@ class HashCheck:
             self.logger.error('Failed to connect to the database')
             return
 
-        self.logger.info(f'Scanning directory: {self.root_dir}')
-
         # Walk through all files and directories in the root directory
         for subdir, dirs, files in os.walk(self.root_dir):
             # Skip any directories in the skip list
             dirs = self._skip_directories(dirs)
-            self.logger.debug(f"Directories to be skipped: {dirs}")
+            self.logger.info(f'Scanning directory: {subdir}')
 
             for file in files:
                 # Get the full file path
                 file_path = subdir + os.sep + file
 
                 # Log the current file being processed
-                self.logger.info(f'Processing file: {file_path}')
+                self.logger.debug(f'Processing file: {file_path}')
 
                 # Process the file
                 self._process_file(file, file_path)
+            self._crud_db()
 
         # Commit changes and close the database connection
         self.conn.commit()
-        self.logger.info('Committed changes to the database')
+        self.logger.debug('Committed changes to the database')
         self.conn.close()
-        self.logger.info('Closed database connection')
+        self.logger.debug('Closed database connection')
     
     def _process_file(self,file,file_path):
         
@@ -186,30 +190,34 @@ class HashCheck:
                 self.logger.debug(f"missing_date: {missing_date}, hash_value: {hash_value}, mismatch_date: {mismatch_date}")
                 # Clear missing date if exists
                 if missing_date:
-                    self.logger.debug(f"Clearing existing missing date for  {file_path}")
-                    self._clear_missing_date(file_path)
+                    self.logger.info(f"Clearing existing missing date for  {file_path}")
+                    self.clear_missing_date.append(file_path)
+                    # self._clear_missing_date(file_path)
 
                 # Check if the hash has changed
                 if file_hash != hash_value:
                     # update the mismatch date
                     self.logger.info(f'Hash mismatch for {file_path}')
-                    self._update_mismatch_date(file_path)
+                    self.update_mismatch_date.append(file_path)
+                    # self._update_mismatch_date(file_path)
                 else:
                     if mismatch_date:
                         # Clear the mismatch date
                         self.logger.info(f'Clearing mismatch date for {file_path}')
-                        self._clear_mismatch_date(file_path)
+                        self.clear_mismatch_date.append(file_path)
+                        # self._clear_mismatch_date(file_path)
             else:
                 self.logger.info(f'New file added {file_path}')
-                self._insert_file_record(file_path, file_hash)
+                self.insert_file_record.append((file_path, file_hash))
+                # self._insert_file_record(file_path, file_hash)
                 
         else:
             # If File is missing
             if result:
                 # Update the database with the missing date
                 self.logger.info(f'File missing for {file_path}')
-                self._update_missing_date(file_path)
-
+                self.update_missing_date.append(file_path)
+                # self._update_missing_date(file_path)
     def _skip_file(self, file, file_path):
         """
         Check if file should be skipped.
@@ -275,7 +283,6 @@ class HashCheck:
         report = self._get_report(results)
         return report
 
-
     def get_all_files(self):
         """
         Returns all files in the database
@@ -298,6 +305,37 @@ class HashCheck:
 
         report = self._get_report(results)
 
+        return report
+
+    def custom_query_execute(self, query):
+        """
+        Executes a custom query and returns the results as a report (json format)
+        """
+        # Connect to the database and return if the connection was unsuccessful
+        if not self._connect_to_db():
+            self.logger.error("Failed to connect to database")
+            return
+        
+        # Log the start of the function execution
+        self.logger.debug(f"Executing query: {query}")
+        results = None
+        # Execute the query to retrieve the file records
+        try:
+            self.cursor.execute(query)
+            results = self.cursor.fetchall()
+        except Exception as e:
+            self.logger.error(f'An error occured when trying to execute the following query: {query} \n Error: {e}')
+        
+        # Log the result of the query execution
+        if results:
+            self.logger.info(f"Found {len(results)} files of type {file_type}")
+        else:
+            self.logger.warning(f"No files found of type: {file_type}")
+        
+        # Call the function to get the report from the results
+        report = self._get_report(results)
+        
+        # Return the report
         return report
 
     def get_files_by_type(self, file_type):
@@ -437,11 +475,12 @@ class HashCheck:
         self.logger.debug("Determined file type for file: {}".format(file_path))
 
         # Delete the record from the database
-        self._delete_file_record(file_path)
+        self.delete_file_record.append(file_path)
         self.logger.info("Deleted record for file: {}".format(file_path))
 
         # Insert a new record into the database
-        self._insert_file_record(file_path, file_hash)
+        # self._insert_file_record(file_path, file_hash)
+        self.insert_file_record.append((file_path, file_hash))
         self.logger.info("Inserted new record for file: {}".format(file_path))
 
     def connect_db(self, dbFilePath = None):
@@ -492,4 +531,68 @@ class HashCheck:
         self.logger.info("Generated report from database results")
         return report
 
+    def _check_existing_file_in_db(self, file_path):
+        self.cursor.execute("SELECT * FROM files WHERE file_path=?", (file_path,))
+        return self.cursor.fetchone()
 
+    def _clear_missing_date(self):
+        if len(self.clear_missing_date) > 0: 
+            sqlite_update_query = """UPDATE files SET missing_date=NULL WHERE file_path=?"""
+            columnValues = [(x)for x in self.clear_missing_date]
+            self.cursor.executemany(sqlite_update_query, columnValues)
+            self.conn.commit()
+            # self.cursor.execute("UPDATE files SET missing_date=NULL WHERE file_path=?", (file_path,))
+
+    def _update_missing_date(self):
+        if len(self.update_missing_date) > 0: 
+            sqlite_update_query = """UPDATE files SET missing_date=? WHERE file_path=?"""
+            columnValues = [(currentDateTime(), x)for x in self.update_missing_date]
+            self.cursor.executemany(sqlite_update_query, columnValues)
+            self.conn.commit()
+        # self.cursor.execute("UPDATE files SET missing_date=? WHERE file_path=?", (currentDateTime(), file_path))
+
+    def _update_mismatch_date(self):
+        if len(self.update_mismatch_date) > 0: 
+            sqlite_update_query = """UPDATE files SET mismatch_date=? WHERE file_path=?"""
+            columnValues = [(currentDateTime(), x)for x in self.update_mismatch_date]
+            self.cursor.executemany(sqlite_update_query, columnValues)
+            self.conn.commit()
+        # self.cursor.execute("UPDATE files SET mismatch_date=? WHERE file_path=?", (currentDateTime(), file_path))
+    
+    def _clear_mismatch_date(self):
+        if len(self.clear_mismatch_date) > 0: 
+            sqlite_update_query = """UPDATE files SET mismatch_date=NULL WHERE file_path=?"""
+            columnValues = [(x)for x in self.clear_mismatch_date]
+            self.cursor.executemany(sqlite_update_query, columnValues)
+            self.conn.commit()
+        # self.cursor.execute("UPDATE files SET mismatch_date=NULL WHERE file_path=?", (file_path,))
+
+    def _insert_file_record(self):
+        if len(self.insert_file_record) > 0: 
+            columnValues = []
+
+            for path, hashValue in self.insert_file_record:
+                # Get the initial date
+                initial_date = currentDateTime()
+
+                # Get File Type
+                file_type = determine_file_type(path)
+
+                columnValues.append((path,hashValue,initial_date,file_type))
+
+            sqlite_update_query = """INSERT INTO files (file_path, file_hash, initial_date, file_type) VALUES (?, ?, ?, ?)"""
+            self.cursor.executemany(sqlite_update_query, columnValues)
+            self.conn.commit()
+
+        # Add the file's information to the database
+        # self.cursor.execute("INSERT INTO files (file_path, file_hash, initial_date, file_type) VALUES (?, ?, ?, ?)", (file_path, file_hash, initial_date, file_type))
+        # self.conn.commit()
+
+    def _delete_file_record(self):
+        if len(self.delete_file_record) > 0: 
+            sqlite_update_query = """DELETE FROM files WHERE file_path=?"""
+            columnValues = [(x)for x in self.delete_file_record]
+            self.cursor.executemany(sqlite_update_query, columnValues)
+            self.conn.commit()
+        # self.cursor.execute("DELETE FROM files WHERE file_path=?", (file_path,))
+        # self.conn.commit()
