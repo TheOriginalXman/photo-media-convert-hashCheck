@@ -10,10 +10,15 @@ def determine_file_type(file_path):
 
 def get_file_hash(file_path):
     # Get the file's hash
-    with open(file_path, 'rb') as f:
-        file_hash = hashlib.sha256(f.read()).hexdigest()
-
-    return file_hash
+    h = hashlib.sha256()
+    with open(file_path, 'rb') as file:
+        while True:
+            chunk = file.read(4096)
+            if not chunk:
+                break
+            h.update(chunk)
+    file.close()
+    return h.hexdigest()
 
 def validatePaths(config):
     for section, attributes in config.items():
@@ -51,9 +56,10 @@ def validateConfig(config_file_path):
     try:
         with open(config_file_path, 'r') as file_db:
             config = json.load(file_db)
+        file_db.close()
         #validateStructure()
         config = validatePaths(config)
-
+        
         return config
     except IOError as e:
         print("Error loading configuration file: " + str(e))
