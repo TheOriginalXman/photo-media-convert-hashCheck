@@ -307,6 +307,37 @@ class HashCheck:
 
         return report
 
+    def custom_query_execute(self, query):
+        """
+        Executes a custom query and returns the results as a report (json format)
+        """
+        # Connect to the database and return if the connection was unsuccessful
+        if not self._connect_to_db():
+            self.logger.error("Failed to connect to database")
+            return
+        
+        # Log the start of the function execution
+        self.logger.debug(f"Executing query: {query}")
+        results = None
+        # Execute the query to retrieve the file records
+        try:
+            self.cursor.execute(query)
+            results = self.cursor.fetchall()
+        except Exception as e:
+            self.logger.error(f'An error occured when trying to execute the following query: {query} \n Error: {e}')
+        
+        # Log the result of the query execution
+        if results:
+            self.logger.info(f"Found {len(results)} files of type {file_type}")
+        else:
+            self.logger.warning(f"No files found of type: {file_type}")
+        
+        # Call the function to get the report from the results
+        report = self._get_report(results)
+        
+        # Return the report
+        return report
+
     def get_files_by_type(self, file_type):
         """
         Returns the records that have the file type that is passed in
