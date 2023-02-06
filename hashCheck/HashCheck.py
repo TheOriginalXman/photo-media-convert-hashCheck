@@ -50,16 +50,23 @@ class HashCheck:
         if self.config.get('singleFileLog', False):
             file_handler = logging.FileHandler(self.log_file, mode='a')
         else:
-            file_handler = logging.FileHandler(self.log_file + currentDateTime(), mode='w')
-            
+            file_handler = logging.FileHandler(currentDateTime() + ' ' + self.log_file , mode='w')
+
         file_handler.setLevel(numeric_log_level)
 
-        # create a formatter for the logs
-        formatter = logging.Formatter('%(asctime)s - %(process)d - %(thread)d - %(name)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s')
-        file_handler.setFormatter(formatter)
+        # create a console handler to log to the console
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
 
+        # create a formatter for the logs
+        file_formatter = logging.Formatter('%(asctime)s - %(process)d - %(thread)d - %(name)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s')
+        console_formatter = logging.Formatter('%(asctime)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s')
+        file_handler.setFormatter(file_formatter)
+        console_handler.setFormatter(console_formatter)
         # add the file handler to the logger
         self.logger.addHandler(file_handler)
+        self.logger.addHandler(console_handler)
+
 
     def create_db(self):
         """
