@@ -57,3 +57,13 @@
         self.logger.debug('Removed Excluded Folders')
 
         return folderNames
+
+    def _remove_orientation(self, file_path, img_format):
+        try:
+            img = Image.open(file_path)
+            img.save(file_path, img_format, exif=b"")
+            img.close()
+        except Exception as e:
+            self.logger.error(f'Error removing orientation information {file_path}')
+  
+            self._remove_orientation(output_file, output_format)
