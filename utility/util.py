@@ -82,6 +82,7 @@ def mergeConfig(config, section):
 
     mergedConfig = _merge_dicts(globalConfig, sectionConfig)
     mergedConfig["rootFolderList"] = merged
+    mergedConfig = _remove_duplicates_from_lists(mergedConfig)
 
     return mergedConfig
 
@@ -104,3 +105,18 @@ def _merge_dicts(global_dict, local_dict):
         if key not in result:
             result[key] = local_dict[key]
     return result
+
+def _remove_duplicates_from_lists(config):
+    extensions = config.get('exclustions',{}).get('extensions',[])
+    if extensions:
+        config['exclusions']['extensions'] = list(set(extensions))
+    
+    folderNames = config.get('exclustions',{}).get('folderNames',[])
+    if folderNames:
+        config['exclusions']['folderNames'] = list(set(folderNames))
+
+    fileNames = config.get('exclustions',{}).get('fileNames',[])
+    if folderNames:
+        config['exclusions']['fileNames'] = list(set(fileNames))
+
+    return config
