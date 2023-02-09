@@ -527,26 +527,28 @@ class HashCheck:
         '''
         Connects to the sqlite database. If it doesn't exist it creates a new db
         '''
+        conn = None
         if not dbFilePath:
             dbFilePath = os.path.join(self.db_folder_path, self.db_file_name)
 
         # Check if the database file already exists
         if not os.path.exists(dbFilePath):
             self.logger.info("Creating database since it doesn't exist")
-            self.create_db()
+            conn = self.create_db()
         try:
-            self.conn = sqlite3.connect(dbFilePath)
+            conn = sqlite3.connect(dbFilePath)
             self.logger.info("Successfully connected to database")
         except Exception as e:
             self.logger.error("Error connecting to database: %s", e)
             raise Exception("Error connecting to database")
 
-        if self.conn:
-            self.cursor = self.conn.cursor()
+        if conn:
+            cursor = conn.cursor()
             self.logger.debug("Cursor created successfully")
         else:
             self.logger.error("Database connection was not established")
             raise Exception("Database connection was not established")
+        return conn
 
     def _get_report(self, db_results):
         '''
