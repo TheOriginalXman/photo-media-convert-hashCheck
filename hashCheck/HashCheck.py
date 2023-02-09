@@ -162,7 +162,17 @@ class HashCheck:
         self._update_mismatch_date(conn, db_actions["update_mismatch_date"])
         self._clear_mismatch_date(conn, db_actions["clear_mismatch_date"])
         self._insert_file_record(conn, db_actions["insert_file_record"])
-        
+    
+    def _get_db_actions_skeleton(self):
+        return {
+            "clear_missing_date" : [],
+            "update_missing_date" : [],
+            "update_mismatch_date" : [],
+            "clear_mismatch_date" : [],
+            "insert_file_record" : [],
+            "delete_file_record" : [],
+        }
+
     def _scan_and_hash_files(self, path):
         """
         Scans all files in the root directory and nested subdirectories, 
@@ -175,14 +185,7 @@ class HashCheck:
             return
 
         # Create a list of transactions the db needs to do, so that the db is not bogged down by constant transactions
-        db_action_lists = {
-            "clear_missing_date" : [],
-            "update_missing_date" : [],
-            "update_mismatch_date" : [],
-            "clear_mismatch_date" : [],
-            "insert_file_record" : [],
-            "delete_file_record" : [],
-        }
+        db_action_lists = self._get_db_actions_skeleton()
 
         # Scan directory and loop through all files and folders
         with os.scandir(path) as items:
@@ -468,6 +471,8 @@ class HashCheck:
 
         scan_list should include full paths to the folder or files
         """
+
+        db_actions = self._get_db_actions_skeleton()
         # Walk through all files and directories in the scan list
         for item in scan_list:
             if os.path.isdir(item):
