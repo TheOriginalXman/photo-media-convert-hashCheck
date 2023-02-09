@@ -388,7 +388,7 @@ class HashCheck:
         Returns the records that have the file type that is passed in
         """
         # Connect to the database and return if the connection was unsuccessful
-        conn = self.connect_db():
+        conn = self.connect_db()
         cursor = conn.cursor()
         # Log the start of the function execution
         self.logger.debug(f"Getting files of type: {file_type}")
