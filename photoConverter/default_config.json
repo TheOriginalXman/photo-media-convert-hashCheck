@@ -1,63 +1,17 @@
 {
-    "global" : {
-        "exclusions" : {
-            "extensions" : [],
-            "folderNames" : [],
-            "fileNames" : [],
-            "paths" : []
-        },
-        "rootFolderList" : [],
-        "logFileName" : "logFolder",
-        "logFolderParentFolderPath" : "./",
-        "logLevel" : "INFO"
+    "exclusions" : {
+        "extensions" : [],
+        "folderNames" : [],
+        "fileNames" : [],
+        "paths" : []
     },
-
-    "video" : {
-        "exclusions" : {
-            "extensions" : ["mp4", "mov", "m4v", "mkv"],
-            "folderNames" : [],
-            "fileNames" : [],
-            "paths" : []
-        },
-        "rootFolderList" : [],
-        "logFileName" : "",
-        "logFolderParentFolderPath" : "",
-        "logLevel" : "INFO",
-        "singleFileLog" : true,
-        "convertedFolderName" : "MP4_Converted_Videos",
-        "convertedFolderParentFolderPath" : "",
-        "outputExtension" : "mp4"
-    },
-    "photo" : {
-        "exclusions" : {
-            "extensions" : [],
-            "folderNames" : [],
-            "fileNames" : [],
-            "paths" : []
-        },
-        "rootFolderList" : [],
-        "logFileName" : "",
-        "logFolderParentFolderPath" : "",
-        "logLevel" : "INFO",
-        "singleFileLog" : true,
-        "convertedFolderName" : "JPG_Converted_Photos",
-        "convertedFolderParentFolderPath" : "",
-        "queryExtensions" : ["heic"],
-        "outputExtension" : "jpeg"
-    },
-    "hash" : {
-        "exclusions" : {
-            "extensions" : [],
-            "folderNames" : [],
-            "fileNames" : [],
-            "paths" : []
-        },
-        "rootFolderList" : [],
-        "logFileName" : "",
-        "logFolderParentFolderPath" : "",
-        "logLevel" : "INFO",
-        "singleFileLog" : false,
-        "dbFile" : "File_DB.db",
-        "dbFileParentFolderPath" : "./"
-    }
+    "rootFolderList" : [],
+    "logFileName" : "",
+    "logFolderParentFolderPath" : "",
+    "logLevel" : "INFO",
+    "singleFileLog" : true,
+    "convertedFolderName" : "JPG_Converted_Photos",
+    "convertedFolderParentFolderPath" : "",
+    "queryExtensions" : ["heic"],
+    "outputExtension" : "jpeg"
 }
