@@ -473,13 +473,19 @@ class HashCheck:
         """
 
         db_actions = self._get_db_actions_skeleton()
+        valid_directories = set()
         # Walk through all files and directories in the scan list
         for item in scan_list:
+            if not os.path.exists(item):
+                continue
+
             if os.path.isdir(item):
                 for subdir, dirs, files in os.walk(item):
                     # Skip any directories in the skip list
                     dirs = self._skip_directories(dirs)
                     self.logger.debug("Removed directories from iteration")
+                    
+                    valid_directories.add(item.path)
 
                     for file in files:
                         # Get the full file path
@@ -491,14 +497,21 @@ class HashCheck:
                             continue
 
                         # Re-initialize the record with the file path
-                        self._reset_file_record(file_path)
+                        db_actions["delete_file_record"].append(file_path)
                         self.logger.info("Record for file %s has been re-initialized", file)
             elif os.path.isfile(item):
                 # Re-initialize the record with the file path
-                self._reset_file_record(item)
+                valid_directories.add(os.path.dirname(item))
+                db_actions["delete_file_record"].append(item.path)
                 self.logger.info("Record for file %s has been re-initialized", item)
             else:
                 self.logger.warning("%s is not a valid file or directory. Skipping...", item)
+        
+        conn = self.connect_db
+        self._crud_db(conn, db_actions)
+        conn.close()
+
+        self.scan_and_hash_files(list(valid_directories))
 
     def _reset_file_record(self,file_path):
         """
