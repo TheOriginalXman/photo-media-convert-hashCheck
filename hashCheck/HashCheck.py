@@ -25,6 +25,7 @@ class HashCheck:
         self.root_dir = None
 
         self.directoryQueue = queue.Queue()
+        self.thread_count = self.config.get('processing_threads',1)
 
     def _configure_logger(self):
         # dump all log levels to file
@@ -124,7 +125,7 @@ class HashCheck:
 
         # Start the directory workers
         threads = []
-        for i in range(15):
+        for i in range(self.thread_count):
             t = threading.Thread(target=self.directory_worker)
             t.start()
             threads.append(t)
