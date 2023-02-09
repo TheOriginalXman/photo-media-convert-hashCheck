@@ -57,6 +57,7 @@
         "logFolderParentFolderPath" : "",
         "logLevel" : "INFO",
         "singleFileLog" : false,
+        "processing_threads" : 3,
         "dbFile" : "File_DB.db",
         "dbFileParentFolderPath" : "./"
     }

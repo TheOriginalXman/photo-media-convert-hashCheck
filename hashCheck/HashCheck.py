@@ -155,13 +155,14 @@ class HashCheck:
     
     def _crud_db(self, conn, db_actions):
         # Bulk Inserting Updated and Deleting from the database
-
+        self.logger.debug(f'Preforming transaction on the following paths: {db_actions}')
         self._delete_file_record(conn, db_actions["delete_file_record"])
         self._clear_missing_date(conn, db_actions["clear_missing_date"])
         self._update_missing_date(conn, db_actions["update_missing_date"])
         self._update_mismatch_date(conn, db_actions["update_mismatch_date"])
         self._clear_mismatch_date(conn, db_actions["clear_mismatch_date"])
         self._insert_file_record(conn, db_actions["insert_file_record"])
+        self.logger.info('Database Updated')
     
     def _get_db_actions_skeleton(self):
         return {
@@ -219,6 +220,7 @@ class HashCheck:
 
     def _is_empty_actions(self, actions):
         if not actions.get("clear_missing_date", None) and not actions.get("update_mismatch_date", None) and not actions.get("clear_mismatch_date", None) and not actions.get("insert_file_record", None) and not actions.get("delete_file_record", None):
+            self.logger.debug("No updates to the database.")
             return True
         return False
 
