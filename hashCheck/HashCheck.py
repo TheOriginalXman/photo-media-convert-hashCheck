@@ -3,6 +3,8 @@ import sqlite3
 import logging
 from utility.dateTime import parse_date, get_current_datetime_string as currentDateTime
 from utility.util import determine_file_type, get_file_hash as fileHash, get_configurations as getConfig 
+import threading
+import queue
 
 class HashCheck:
 
@@ -21,16 +23,8 @@ class HashCheck:
         self.db_file_name = self.config.get('dbFile','hash.db')
         self.db_folder_path = self.config.get('dbFileParentFolderPath','./')
         self.root_dir = None
-        self.conn = None
-        self.cursor = None
-        self.connect_db(db_file_path)
 
-        self.clear_missing_date = []
-        self.update_mismatch_date = []
-        self.clear_mismatch_date = []
-        self.update_missing_date = []
-        self.insert_file_record = []
-        self.delete_file_record = []
+        self.directoryQueue = queue.Queue()
 
     def _configure_logger(self):
         # dump all log levels to file
@@ -59,7 +53,7 @@ class HashCheck:
 
         # create a formatter for the logs
         file_formatter = logging.Formatter('%(asctime)s - %(process)d - %(thread)d - %(name)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s')
-        console_formatter = logging.Formatter('%(asctime)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s')
+        console_formatter = logging.Formatter('%(asctime)s - %(process)d - %(thread)d - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s')
         file_handler.setFormatter(file_formatter)
         console_handler.setFormatter(console_formatter)
         # add the file handler to the logger
@@ -73,7 +67,7 @@ class HashCheck:
         'files' table.
         """
         dbFilePath = os.path.join(self.db_folder_path, self.db_file_name)
-
+        conn = None
         # check if the database file already exists
         if os.path.exists(dbFilePath):
             self.logger.debug(f"The database file already exists at {dbFilePath}")
@@ -82,8 +76,8 @@ class HashCheck:
         self.logger.info(f"Creating a new database file at {dbFilePath}")
         
         # create the database file and table
-        self.conn = sqlite3.connect(dbFilePath)
-        self.cursor = self.conn.cursor()
+        conn = sqlite3.connect(dbFilePath)
+        cursor = conn.cursor()
         
         # Read the schema file
         try:
@@ -95,13 +89,14 @@ class HashCheck:
         
         # Execute the SQL commands in the schema file
         try:
-            self.cursor.executescript(schema)
+            cursor.executescript(schema)
         except Exception as e:
             self.logger.error(f"Error executing schema script: {e}")
             return
         
-        self.conn.commit()
+        conn.commit()
         self.logger.info(f"Database file created successfully at {dbFilePath}")
+        return conn
 
     def scan_and_hash_files(self):
         """
@@ -111,72 +106,122 @@ class HashCheck:
         gets their hashes, and saves the information to db.
         """
 
+        # If no directory paths are in the config exit
         if self.root_directories:
-            for root in self.root_directories:
-                self.root_dir = root
-                self._scan_and_hash_files()
+            # Create the directory queue
+            self.directoryQueue = queue.Queue()
+            for root_path in self.root_directories:
+                self.directoryQueue.put(root_path)
+        else:
+            return
 
-    def _crud_db(self):
-        self._connect_to_db()
-        self._clear_missing_date()
-        self._update_missing_date()
-        self._update_mismatch_date()
-        self._clear_mismatch_date()
-        self._insert_file_record()
-        self._delete_file_record()
+        # Creates a DB with the name provided, if one is not found at the file path
+        self.create_db()
 
-        self.connect_to_db = []
-        self.clear_missing_date = []
-        self.update_missing_date = []
-        self.update_mismatch_date = []
-        self.clear_mismatch_date = []
-        self.insert_file_record = []
-        self.delete_file_record = []
 
-    def _scan_and_hash_files(self):
+        # Start the directory workers
+        threads = []
+        for i in range(15):
+            t = threading.Thread(target=self.directory_worker)
+            t.start()
+            threads.append(t)
+
+        # wait for all items to be processed
+        self.directoryQueue.join()
+        for t in threads:
+            t.join()   
+
+    def directory_worker(self):
+        """
+            Worker keeps grabbing directories from the queue, if none are found it waits 60 seconds and terminates
+        """
+        path = None
+        while True:
+            try:
+                # Get the next item from the queue
+                path = self.directoryQueue.get(timeout=60)
+            except Exception as e:
+                break
+            
+            # Scan Hash files in directory
+            self._scan_and_hash_files(path)
+
+            # Let the queue know the task has be finished
+            self.directoryQueue.task_done()
+    
+    def _crud_db(self, conn, db_actions):
+        # Bulk Inserting Updated and Deleting from the database
+
+        self._delete_file_record(conn, db_actions["delete_file_record"])
+        self._clear_missing_date(conn, db_actions["clear_missing_date"])
+        self._update_missing_date(conn, db_actions["update_missing_date"])
+        self._update_mismatch_date(conn, db_actions["update_mismatch_date"])
+        self._clear_mismatch_date(conn, db_actions["clear_mismatch_date"])
+        self._insert_file_record(conn, db_actions["insert_file_record"])
+        
+
+    def _scan_and_hash_files(self, path):
         """
         Scans all files in the root directory and nested subdirectories, 
         gets their hashes, and saves the information to db.
         """
+        conn = self._connect_to_db()
         # Check if root directory is specified and exists
-        if not self.root_dir or not os.path.exists(self.root_dir):
-            self.logger.error('Root directory not found')
+        if not path or not os.path.exists(path):
+            self.logger.error('path not found')
             return
 
-        # Connect to the database
-        if not self._connect_to_db():
-            self.logger.error('Failed to connect to the database')
-            return
+        # Create a list of transactions the db needs to do, so that the db is not bogged down by constant transactions
+        db_action_lists = {
+            "clear_missing_date" : [],
+            "update_missing_date" : [],
+            "update_mismatch_date" : [],
+            "clear_mismatch_date" : [],
+            "insert_file_record" : [],
+            "delete_file_record" : [],
+        }
 
-        # Walk through all files and directories in the root directory
-        for subdir, dirs, files in os.walk(self.root_dir):
-            # Skip any directories in the skip list
-            dirs = self._skip_directories(dirs)
-            self.logger.info(f'Scanning directory: {subdir}')
+        # Scan directory and loop through all files and folders
+        with os.scandir(path) as items:
+            for item in items:
+                if item.is_dir():
+                    # check if directory on exclusion list
+                    if self._is_directory_excluded(item):
+                        continue
 
-            for file in files:
-                # Get the full file path
-                file_path = subdir + os.sep + file
+                    # Add to queue for another worker to process
+                    self.directoryQueue.put(os.path.join(path, item))
+                elif item.is_file():
+                    # Get the full file path
+                    file_path = os.path.join(path, item)
 
-                # Log the current file being processed
-                self.logger.debug(f'Processing file: {file_path}')
+                    # Log the current file being processed
+                    self.logger.debug(f'Processing file: {file_path}')
 
-                # Process the file
-                self._process_file(file, file_path)
-            self._crud_db()
+                    # Process the file
+                    self._process_file(item.name, file_path, conn, db_action_lists) 
+                
+        # Only update the DB if there are transactions that need to process
+        if not self._is_empty_actions(db_action_lists):
+            self._crud_db(conn, db_action_lists)
 
         # Commit changes and close the database connection
-        self.conn.commit()
+        conn.commit()
         self.logger.debug('Committed changes to the database')
-        self.conn.close()
+        conn.close()
         self.logger.debug('Closed database connection')
-    
-    def _process_file(self,file,file_path):
-        
+
+    def _is_empty_actions(self, actions):
+        if not actions.get("clear_missing_date", None) and not actions.get("update_mismatch_date", None) and not actions.get("clear_mismatch_date", None) and not actions.get("insert_file_record", None) and not actions.get("delete_file_record", None):
+            return True
+        return False
+
+    def _process_file(self,file,file_path, conn, db_action):
         if self._skip_file(file, file_path):
             return
+
         # Check if the file is already in the database
-        result = self._check_existing_file_in_db(file_path)
+        result = self._check_existing_file_in_db(conn,file_path)
         # Check if the file still exists
         if os.path.exists(file_path):
             # Get the file's hash
@@ -191,33 +236,29 @@ class HashCheck:
                 # Clear missing date if exists
                 if missing_date:
                     self.logger.info(f"Clearing existing missing date for  {file_path}")
-                    self.clear_missing_date.append(file_path)
-                    # self._clear_missing_date(file_path)
+                    db_action["clear_missing_date"].append(file_path)
 
                 # Check if the hash has changed
                 if file_hash != hash_value:
                     # update the mismatch date
                     self.logger.info(f'Hash mismatch for {file_path}')
-                    self.update_mismatch_date.append(file_path)
-                    # self._update_mismatch_date(file_path)
+                    db_action["update_mismatch_date"].append(file_path)
                 else:
                     if mismatch_date:
                         # Clear the mismatch date
                         self.logger.info(f'Clearing mismatch date for {file_path}')
-                        self.clear_mismatch_date.append(file_path)
-                        # self._clear_mismatch_date(file_path)
+                        db_action["clear_mismatch_date"].append(file_path)
             else:
                 self.logger.info(f'New file added {file_path}')
-                self.insert_file_record.append((file_path, file_hash))
-                # self._insert_file_record(file_path, file_hash)
+                db_action["insert_file_record"].append((file_path, file_hash))
                 
         else:
             # If File is missing
             if result:
                 # Update the database with the missing date
                 self.logger.info(f'File missing for {file_path}')
-                self.update_missing_date.append(file_path)
-                # self._update_missing_date(file_path)
+                db_action["update_missing_date"].append(file_path)
+
     def _skip_file(self, file, file_path):
         """
         Check if file should be skipped.
@@ -239,15 +280,14 @@ class HashCheck:
         self.logger.debug(f"File {file} is not in the exclusion list.")
         return False
 
-    def _skip_directories(self, dirs):
-        dirs[:] = [d for d in dirs if d not in self.exclusions.get("folderNames",[])]
-        return dirs
-
-    def _connect_to_db(self):
-        self.connect_db()
-        if not self.conn or not self.cursor:
-            raise Exception("Database connection not established")
-        return True
+    def _is_directory_excluded(self,item):
+        """
+        Check if directory should be skipped
+        """
+        if item.name in self.exclusions.get("folderNames",[]):
+            return True
+        
+        return False
 
     def get_flagged_files(self, flag = None):
         """
