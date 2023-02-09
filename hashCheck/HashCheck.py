@@ -571,47 +571,49 @@ class HashCheck:
         self.logger.info("Generated report from database results")
         return report
 
-    def _check_existing_file_in_db(self, file_path):
-        self.cursor.execute("SELECT * FROM files WHERE file_path=?", (file_path,))
-        return self.cursor.fetchone()
+    def _check_existing_file_in_db(self, conn, file_path):
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM files WHERE file_path=?", (file_path,))
+        return cursor.fetchone()
 
-    def _clear_missing_date(self):
-        if len(self.clear_missing_date) > 0: 
+    def _clear_missing_date(self, conn, paths):
+        cursor = conn.cursor()
+        if len(paths) > 0: 
             sqlite_update_query = """UPDATE files SET missing_date=NULL WHERE file_path=?"""
-            columnValues = [(x)for x in self.clear_missing_date]
-            self.cursor.executemany(sqlite_update_query, columnValues)
-            self.conn.commit()
-            # self.cursor.execute("UPDATE files SET missing_date=NULL WHERE file_path=?", (file_path,))
+            columnValues = [(x)for x in paths]
+            cursor.executemany(sqlite_update_query, columnValues)
+            conn.commit()
 
-    def _update_missing_date(self):
-        if len(self.update_missing_date) > 0: 
+    def _update_missing_date(self, conn, paths):
+        cursor = conn.cursor()
+        if len(paths) > 0: 
             sqlite_update_query = """UPDATE files SET missing_date=? WHERE file_path=?"""
-            columnValues = [(currentDateTime(), x)for x in self.update_missing_date]
-            self.cursor.executemany(sqlite_update_query, columnValues)
-            self.conn.commit()
-        # self.cursor.execute("UPDATE files SET missing_date=? WHERE file_path=?", (currentDateTime(), file_path))
+            columnValues = [(currentDateTime(), x)for x in paths]
+            cursor.executemany(sqlite_update_query, columnValues)
+            conn.commit()
 
-    def _update_mismatch_date(self):
-        if len(self.update_mismatch_date) > 0: 
+    def _update_mismatch_date(self, conn, paths):
+        cursor = conn.cursor()
+        if len(paths) > 0: 
             sqlite_update_query = """UPDATE files SET mismatch_date=? WHERE file_path=?"""
-            columnValues = [(currentDateTime(), x)for x in self.update_mismatch_date]
-            self.cursor.executemany(sqlite_update_query, columnValues)
-            self.conn.commit()
-        # self.cursor.execute("UPDATE files SET mismatch_date=? WHERE file_path=?", (currentDateTime(), file_path))
+            columnValues = [(currentDateTime(), x)for x in paths]
+            cursor.executemany(sqlite_update_query, columnValues)
+            conn.commit()
     
-    def _clear_mismatch_date(self):
-        if len(self.clear_mismatch_date) > 0: 
+    def _clear_mismatch_date(self, conn, paths):
+        cursor = conn.cursor()
+        if len(paths) > 0: 
             sqlite_update_query = """UPDATE files SET mismatch_date=NULL WHERE file_path=?"""
-            columnValues = [(x)for x in self.clear_mismatch_date]
-            self.cursor.executemany(sqlite_update_query, columnValues)
-            self.conn.commit()
-        # self.cursor.execute("UPDATE files SET mismatch_date=NULL WHERE file_path=?", (file_path,))
+            columnValues = [(x)for x in paths]
+            cursor.executemany(sqlite_update_query, columnValues)
+            conn.commit()
 
-    def _insert_file_record(self):
-        if len(self.insert_file_record) > 0: 
+    def _insert_file_record(self, conn, paths):
+        cursor = conn.cursor()
+        if len(paths) > 0: 
             columnValues = []
 
-            for path, hashValue in self.insert_file_record:
+            for path, hashValue in paths:
                 # Get the initial date
                 initial_date = currentDateTime()
 
@@ -620,19 +622,18 @@ class HashCheck:
 
                 columnValues.append((path,hashValue,initial_date,file_type))
 
+            # Add the file's information to the database
             sqlite_update_query = """INSERT INTO files (file_path, file_hash, initial_date, file_type) VALUES (?, ?, ?, ?)"""
-            self.cursor.executemany(sqlite_update_query, columnValues)
-            self.conn.commit()
+            cursor.executemany(sqlite_update_query, columnValues)
+            conn.commit()
 
-        # Add the file's information to the database
-        # self.cursor.execute("INSERT INTO files (file_path, file_hash, initial_date, file_type) VALUES (?, ?, ?, ?)", (file_path, file_hash, initial_date, file_type))
-        # self.conn.commit()
+        
 
-    def _delete_file_record(self):
-        if len(self.delete_file_record) > 0: 
+    def _delete_file_record(self, conn, paths):
+        cursor = conn.cursor()
+        if len(paths) > 0: 
             sqlite_update_query = """DELETE FROM files WHERE file_path=?"""
-            columnValues = [(x)for x in self.delete_file_record]
-            self.cursor.executemany(sqlite_update_query, columnValues)
-            self.conn.commit()
-        # self.cursor.execute("DELETE FROM files WHERE file_path=?", (file_path,))
-        # self.conn.commit()
+            columnValues = [(x)for x in paths]
+            cursor.executemany(sqlite_update_query, columnValues)
+            conn.commit()
+        
