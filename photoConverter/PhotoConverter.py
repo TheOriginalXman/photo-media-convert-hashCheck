@@ -1,3 +1,5 @@
+import sys
+sys.path.append('photoConverter/')
 import os
 import shutil
 import subprocess
@@ -12,7 +14,7 @@ class PhotoConverter:
     def __init__(self, config_path="../default_config.json", root_path=None):
 
         # Load configuration from the given path
-        self.config = getConfig(config_path, 'photo')
+        self.config = getConfig(config_path)
 
         # Get the log file path and name from the config file and setup logger
         self.log_file = os.path.join(self.config.get('logFolderParentFolderPath', None), self.config.get('logFileName', None))

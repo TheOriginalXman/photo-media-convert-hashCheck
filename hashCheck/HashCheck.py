@@ -1,14 +1,17 @@
+import sys
+sys.path.append('hashCheck/')
 import os
 import sqlite3
 import logging
 from utility.dateTime import parse_date, get_current_datetime_string as currentDateTime
 from utility.util import determine_file_type, get_file_hash as fileHash, get_configurations as getConfig 
-
 class HashCheck:
 
-    def __init__(self, config_path="../default_config.json", db_file_path=None):
+    def __init__(self, config_path="../default_config.json"):
         # Load configuration from the given path
-        self.config = getConfig(config_path, 'hash')
+        self.config = getConfig(config_path)
+        if not self.config:
+            return
         # Get the log file path and name from the config file and setup logger
         self.log_file = os.path.join(self.config.get('logFolderParentFolderPath', None), self.config.get('logFileName', None))
 
