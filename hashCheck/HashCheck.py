@@ -98,7 +98,7 @@ class HashCheck:
         self.logger.info(f"Database file created successfully at {dbFilePath}")
         return conn
 
-    def scan_and_hash_files(self):
+    def scan_and_hash_files(self, directories = None):
         """
         Loops through all root directories
 
@@ -106,11 +106,15 @@ class HashCheck:
         gets their hashes, and saves the information to db.
         """
 
+        # Create the directory queue
+        self.directoryQueue = queue.Queue()
+
         # If no directory paths are in the config exit
         if self.root_directories:
-            # Create the directory queue
-            self.directoryQueue = queue.Queue()
             for root_path in self.root_directories:
+                self.directoryQueue.put(root_path)
+        elif directories:
+            for root_path in directories:
                 self.directoryQueue.put(root_path)
         else:
             return
@@ -159,13 +163,12 @@ class HashCheck:
         self._clear_mismatch_date(conn, db_actions["clear_mismatch_date"])
         self._insert_file_record(conn, db_actions["insert_file_record"])
         
-
     def _scan_and_hash_files(self, path):
         """
         Scans all files in the root directory and nested subdirectories, 
         gets their hashes, and saves the information to db.
         """
-        conn = self._connect_to_db()
+        conn = self.connect_db()
         # Check if root directory is specified and exists
         if not path or not os.path.exists(path):
             self.logger.error('path not found')
@@ -294,31 +297,29 @@ class HashCheck:
         Returns the records that have either missing or mismatched dates based on the flag passed in. 
         flag = 'missing' or 'mismatch'
         """
-        if not self._connect_to_db():
-            self.logger.error("Failed to connect to database")
-            return
-        
+        conn = self.connect_db()
+        cursor = conn.cursor()
         # Log the start of the function with an info log
         self.logger.info("Getting flagged files from database")
 
         # Get the records based on the flag
         if flag == "missing":
-            self.cursor.execute("SELECT * FROM files WHERE missing_date IS NOT NULL")
+            cursor.execute("SELECT * FROM files WHERE missing_date IS NOT NULL")
         elif flag == "mismatch":
-            self.cursor.execute("SELECT * FROM files WHERE mismatch_date IS NOT NULL")
+            cursor.execute("SELECT * FROM files WHERE mismatch_date IS NOT NULL")
         elif flag == None:
-            self.cursor.execute("SELECT * FROM files WHERE mismatch_date IS NOT NULL OR missing_date IS NOT NULL")
+            cursor.execute("SELECT * FROM files WHERE mismatch_date IS NOT NULL OR missing_date IS NOT NULL")
         else:
             # Log an error if an invalid flag is passed in
             self.logger.error("Invalid flag. Please use 'missing' or 'mismatch'.")
             raise ValueError("Invalid flag. Please use 'missing' or 'mismatch'.")
             
-        results = self.cursor.fetchall()
+        results = cursor.fetchall()
         
         # Log the number of results retrieved
         self.logger.debug(f"{len(results)} results retrieved")
         
-        self.conn.close()
+        conn.close()
 
         report = self._get_report(results)
         return report
@@ -327,15 +328,18 @@ class HashCheck:
         """
         Returns all files in the database
         """
+        conn = self.connect_db()
+        cursor = conn.cursor()
+
         # Check if database is connected
-        if not self._connect_to_db():
+        if not conn:
             self.logger.error("Failed to connect to database")
             return
 
         self.logger.debug("Fetching all files from database")
-        self.cursor.execute("SELECT * FROM files")
-        results = self.cursor.fetchall()
-        self.conn.close()
+        cursor.execute("SELECT * FROM files")
+        results = cursor.fetchall()
+        conn.close()
 
         # Log the result of the query execution
         if results:
@@ -352,17 +356,16 @@ class HashCheck:
         Executes a custom query and returns the results as a report (json format)
         """
         # Connect to the database and return if the connection was unsuccessful
-        if not self._connect_to_db():
-            self.logger.error("Failed to connect to database")
-            return
+        conn = self.connect_db
+        cursor = conn.cursor()
         
         # Log the start of the function execution
         self.logger.debug(f"Executing query: {query}")
         results = None
         # Execute the query to retrieve the file records
         try:
-            self.cursor.execute(query)
-            results = self.cursor.fetchall()
+            cursor.execute(query)
+            results = cursor.fetchall()
         except Exception as e:
             self.logger.error(f'An error occured when trying to execute the following query: {query} \n Error: {e}')
         
@@ -374,7 +377,7 @@ class HashCheck:
         
         # Call the function to get the report from the results
         report = self._get_report(results)
-        
+        conn.close()
         # Return the report
         return report
 
@@ -383,16 +386,14 @@ class HashCheck:
         Returns the records that have the file type that is passed in
         """
         # Connect to the database and return if the connection was unsuccessful
-        if not self._connect_to_db():
-            self.logger.error("Failed to connect to database")
-            return
-        
+        conn = self.connect_db():
+        cursor = conn.cursor()
         # Log the start of the function execution
         self.logger.debug(f"Getting files of type: {file_type}")
         
         # Execute the query to retrieve the file records
-        self.cursor.execute("SELECT * FROM files WHERE file_type=?", (file_type,))
-        results = self.cursor.fetchall()
+        cursor.execute("SELECT * FROM files WHERE file_type=?", (file_type,))
+        results = cursor.fetchall()
         
         # Log the result of the query execution
         if results:
@@ -402,7 +403,7 @@ class HashCheck:
         
         # Call the function to get the report from the results
         report = self._get_report(results)
-        
+        conn.close()
         # Return the report
         return report
 
@@ -414,9 +415,8 @@ class HashCheck:
         self.logger.debug("Getting files by initial date: %s", initial_date)
 
         # Check if the database connection is established
-        if not self._connect_to_db():
-            self.logger.error("Failed to connect to database")
-            return
+        conn = self.connect_db()
+        cursor = conn.cursor()
 
         # Log an info message indicating the parsing of the initial date
         self.logger.info("Parsing initial date: %s", initial_date)
@@ -429,9 +429,9 @@ class HashCheck:
         self.logger.debug("Executing SQL query: SELECT * FROM files WHERE initial_date = %s", initial_date)
 
         # Execute the SQL query to retrieve the matching records
-        self.cursor.execute("SELECT * FROM files WHERE initial_date = ?", (initial_date,))
+        cursor.execute("SELECT * FROM files WHERE initial_date = ?", (initial_date,))
         results = self.cursor.fetchall()
-        self.conn.close()
+        conn.close()
 
         # Log a debug message indicating the start of the `_get_report` function
         self.logger.debug("Getting report from results")
@@ -448,21 +448,19 @@ class HashCheck:
         """
         Resets all the fields of the db and re-scan all files
         """
-        if not self._connect_to_db():
-            self.logger.error("Failed to connect to the database")
-            return
+        conn = self.connect_db()
+        cursor = conn.cursor()
 
         try:
-            self.cursor.execute("DELETE FROM files")
-            self.conn.commit()
+            cursor.execute("DELETE FROM files")
+            conn.commit()
             self.logger.info("Successfully deleted all records from the database")
         except Exception as e:
             self.logger.error("An error occurred while deleting the records from the database: {}".format(e))
             return
-
+        conn.close()
         self.logger.info("Starting to re-scan all the files")
         self.scan_and_hash_files()
-        self.logger.info("Finished re-scanning all the files")
 
     def reinitialize_specific(self, scan_list):
         """
