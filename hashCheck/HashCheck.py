@@ -60,7 +60,6 @@ class HashCheck:
         self.logger.addHandler(file_handler)
         self.logger.addHandler(console_handler)
 
-
     def create_db(self):
         """
         Creates the 'file_db.db' file in the root directory and creates the
@@ -513,32 +512,6 @@ class HashCheck:
 
         self.scan_and_hash_files(list(valid_directories))
 
-    def _reset_file_record(self,file_path):
-        """
-        Updates the hash, initial date and file type of a file, along with clearing the missing and mismatch dates
-        """
-        # Connect to the database if it's not connected
-        if not self._connect_to_db():
-            self.logger.error("Failed to connect to the database.")
-            return
-
-        # Get the file's hash
-        file_hash = fileHash(file_path)
-        self.logger.debug("Generated hash for file: {}".format(file_path))
-        
-        # Get the file's type
-        file_type = determine_file_type(file_path)
-        self.logger.debug("Determined file type for file: {}".format(file_path))
-
-        # Delete the record from the database
-        self.delete_file_record.append(file_path)
-        self.logger.info("Deleted record for file: {}".format(file_path))
-
-        # Insert a new record into the database
-        # self._insert_file_record(file_path, file_hash)
-        self.insert_file_record.append((file_path, file_hash))
-        self.logger.info("Inserted new record for file: {}".format(file_path))
-
     def connect_db(self, dbFilePath = None):
         '''
         Connects to the sqlite database. If it doesn't exist it creates a new db
@@ -644,8 +617,6 @@ class HashCheck:
             sqlite_update_query = """INSERT INTO files (file_path, file_hash, initial_date, file_type) VALUES (?, ?, ?, ?)"""
             cursor.executemany(sqlite_update_query, columnValues)
             conn.commit()
-
-        
 
     def _delete_file_record(self, conn, paths):
         cursor = conn.cursor()
