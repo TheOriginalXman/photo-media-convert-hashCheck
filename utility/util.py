@@ -78,10 +78,11 @@ def mergeConfig(config, section):
 
     global_roots = set(globalConfig["rootFolderList"])
     section_roots = set(sectionConfig["rootFolderList"])
-    merged = [path for path in global_roots if all(not path.startswith(specific_path) for specific_path in section_roots)]
+
+    # merged = [path for path in global_roots if all(not path.startswith(specific_path) for specific_path in section_roots)]
 
     mergedConfig = _merge_dicts(globalConfig, sectionConfig)
-    mergedConfig["rootFolderList"] = merged
+    # mergedConfig["rootFolderList"] = merged
     mergedConfig = _remove_duplicates_from_lists(mergedConfig)
 
     return mergedConfig
