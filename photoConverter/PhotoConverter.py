@@ -5,8 +5,8 @@ import platform
 import logging
 import multiprocessing
 from PIL import Image
-import sys
-sys.path.insert(0, '/Users/prajanchauhan/Documents/Personal/Photos and Media/')
+# import sys
+# sys.path.insert(0, '/Users/prajanchauhan/Documents/Personal/Photos and Media/')
 from utility.util import get_configurations as getConfig 
 from utility.dateTime import get_current_datetime_string as currentDateTime
 
