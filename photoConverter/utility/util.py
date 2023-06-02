@@ -72,15 +72,15 @@ def get_configurations(config_file_path):
     return _remove_duplicates_from_lists(config)
 
 def _remove_duplicates_from_lists(config):
-    extensions = config.get('exclustions',{}).get('extensions',[])
+    extensions = config.get('exclusions',{}).get('extensions',[])
     if extensions:
         config['exclusions']['extensions'] = list(set(extensions))
     
-    folderNames = config.get('exclustions',{}).get('folderNames',[])
+    folderNames = config.get('exclusions',{}).get('folderNames',[])
     if folderNames:
         config['exclusions']['folderNames'] = list(set(folderNames))
 
-    fileNames = config.get('exclustions',{}).get('fileNames',[])
+    fileNames = config.get('exclusions',{}).get('fileNames',[])
     if folderNames:
         config['exclusions']['fileNames'] = list(set(fileNames))
 
