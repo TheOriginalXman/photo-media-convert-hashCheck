@@ -371,5 +371,5 @@ class PhotoConverter:
                         if not matching_files:
                             old_path = os.path.join(converted_photos_dir, filename)
                             new_path = os.path.join(parent_dir, filename)
-                            self.logger.debug(f'Moving {old_path} to {new_path}')
+                            self.logger.info(f'Moving {old_path} to {new_path}')
                             os.rename(old_path, new_path)
