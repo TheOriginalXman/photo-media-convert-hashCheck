@@ -165,6 +165,13 @@ class PhotoConverter:
         # Loop through all the files in the directory
         for file in filenames:
             self._convert_process_file(dirpath, file, input_formats, output_format, output_folder)
+        
+        if os.path.exists(output_folder):
+            for filename in os.listdir(output_folder):
+                if filename.endswith('-depth.jpeg'):
+                    file_path = os.path.join(directory, filename)
+                    self.logger.info(f"Removing depth file: {file_path}")
+                    os.remove(file_path)
 
     def _convert_process_file(self, dirpath, file, input_formats, output_format, output_folder):
         # Get the full path of the input file
