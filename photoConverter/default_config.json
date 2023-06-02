@@ -1,0 +1,17 @@
+{
+    "exclusions" : {
+        "extensions" : [],
+        "folderNames" : [],
+        "fileNames" : [],
+        "paths" : []
+    },
+    "rootFolderList" : [],
+    "logFileName" : "",
+    "logFolderParentFolderPath" : "",
+    "logLevel" : "INFO",
+    "singleFileLog" : true,
+    "convertedFolderName" : "JPG_Converted_Photos",
+    "convertedFolderParentFolderPath" : "",
+    "queryExtensions" : ["heic"],
+    "outputExtension" : "jpeg"
+}

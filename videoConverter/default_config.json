@@ -1,0 +1,16 @@
+{
+    "exclusions": {
+        "extensions": ["mp4", "mov", "m4v", "mkv"],
+        "folderNames": [],
+        "fileNames": [],
+        "paths": []
+    },
+    "rootFolderList": [],
+    "logFileName": "",
+    "logFolderParentFolderPath": "",
+    "logLevel": "INFO",
+    "singleFileLog": true,
+    "convertedFolderName": "MP4_Converted_Videos",
+    "convertedFolderParentFolderPath": "",
+    "outputExtension": "mp4"
+}

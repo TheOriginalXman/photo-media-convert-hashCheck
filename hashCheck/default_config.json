@@ -1,0 +1,15 @@
+{
+    "exclusions": {
+        "extensions": [],
+        "folderNames": [],
+        "fileNames": [],
+        "paths": []
+    },
+    "rootFolderList": [],
+    "logFileName": "",
+    "logFolderParentFolderPath": "",
+    "logLevel": "INFO",
+    "singleFileLog": false,
+    "dbFile": "File_DB.db",
+    "dbFileParentFolderPath": "./"
+}

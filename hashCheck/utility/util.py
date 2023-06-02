@@ -21,17 +21,16 @@ def get_file_hash(file_path):
     return h.hexdigest()
 
 def validatePaths(config):
-    for section, attributes in config.items():
-        for attribute in attributes:
-            if attribute == 'exclusions':
+    for attribute in config.items():
+        if attribute == 'exclusions':
 
-                config[section][attribute]["paths"] = _getValidPathList(config[section][attribute]["paths"])
+            config[attribute]["paths"] = _getValidPathList(config[attribute]["paths"])
 
-            elif attribute == "rootFolderList":
-                config[section][attribute] = _getValidPathList(config[section][attribute])
+        elif attribute == "rootFolderList":
+            config[attribute] = _getValidPathList(config[attribute])
 
-            elif attribute in ["logFolderParentFolderPath", "convertedFolderParentFolderPath", "dbFileParentFolderPath"]:
-                config[section][attribute] = _getSingleValidPath(config[section][attribute])
+        elif attribute in ["logFolderParentFolderPath", "convertedFolderParentFolderPath", "dbFileParentFolderPath"]:
+            config[attribute] = _getSingleValidPath(config[attribute])
     return config
 
 def _getSingleValidPath(attribute):
@@ -67,45 +66,10 @@ def validateConfig(config_file_path):
     except Exception as e:
         print("Error loading configuration file: " + str(e))
 
-def get_configurations(config_file_path, section):
+def get_configurations(config_file_path):
     config = validateConfig(config_file_path)
 
-    return mergeConfig(config, section)
-    
-def mergeConfig(config, section):
-    globalConfig = config["global"]
-    sectionConfig = config[section]
-
-    global_roots = set(globalConfig["rootFolderList"])
-    section_roots = set(sectionConfig["rootFolderList"])
-
-    # merged = [path for path in global_roots if all(not path.startswith(specific_path) for specific_path in section_roots)]
-
-    mergedConfig = _merge_dicts(globalConfig, sectionConfig)
-    # mergedConfig["rootFolderList"] = merged
-    mergedConfig = _remove_duplicates_from_lists(mergedConfig)
-
-    return mergedConfig
-
-
-def _merge_dicts(global_dict, local_dict):
-    result = {}
-    for key in global_dict:
-        if key in local_dict:
-            if isinstance(global_dict[key], list):
-                result[key] = global_dict[key] + local_dict[key]
-            elif isinstance(global_dict[key], dict):
-                result[key] = _merge_dicts(global_dict[key], local_dict[key])
-            elif local_dict[key]:
-                result[key] = local_dict[key]
-            else:
-                result[key] = global_dict[key]
-        else:
-            result[key] = global_dict[key]
-    for key in local_dict:
-        if key not in result:
-            result[key] = local_dict[key]
-    return result
+    return _remove_duplicates_from_lists(config)
 
 def _remove_duplicates_from_lists(config):
     extensions = config.get('exclustions',{}).get('extensions',[])

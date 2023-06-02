@@ -7,3 +7,6 @@ config.json
 .DS_Store
 __pycache__
 credentials
+.sfdx
+test
+photoConverter/photoConvert
