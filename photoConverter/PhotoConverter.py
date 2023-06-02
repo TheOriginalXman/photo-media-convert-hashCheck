@@ -374,6 +374,7 @@ class PhotoConverter:
                                 file_path = os.path.join(converted_photos_dir, filename)
                                 self.logger.info(f"Removing depth file: {file_path}")
                                 os.remove(file_path)
+                                continue
                         filename_without_ext = os.path.splitext(filename)[0]
                         matching_files = [
                             f for f in os.listdir(parent_dir)
