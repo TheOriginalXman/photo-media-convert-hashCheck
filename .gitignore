@@ -8,3 +8,5 @@ config.json
 __pycache__
 credentials
 .sfdx
+test
+photoConverter/photoConvert

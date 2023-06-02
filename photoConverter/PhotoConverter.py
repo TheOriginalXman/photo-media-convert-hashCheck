@@ -1,5 +1,6 @@
 import sys
-sys.path.append('photoConverter/')
+DIR_NAME='photoConverter/'
+sys.path.append(DIR_NAME)
 import os
 import shutil
 import subprocess
@@ -11,7 +12,7 @@ from utility.dateTime import get_current_datetime_string as currentDateTime
 
 
 class PhotoConverter:
-    def __init__(self, config_path="../default_config.json", root_path=None):
+    def __init__(self, config_path=f"{DIR_NAME}config.json", root_path=None):
 
         # Load configuration from the given path
         self.config = getConfig(config_path)
@@ -336,3 +337,37 @@ class PhotoConverter:
                 self.logger.error(f'Path was not removed successfully')
             else:
                 self.logger.info(f'Path was successfully removed')
+
+    def move_missing_files_from_converted_to_actual_directory(self, traversing_directories = []):
+        if not traversing_directories and self.root_directories:
+            traversing_directories = self.root_directories
+        
+        elif not traversing_directories and self.root_path:
+                traversing_directories.append(self.root_path)
+        elif not traversing_directories:
+            self.logger.warning(f'No directories to traverse')
+            return
+
+        for traversing_directory in traversing_directories:
+
+            if not os.path.exists(traversing_directory):
+                self.logger.warning(f'Traversing Directory does not exist: %s' % traversing_directory)
+                return
+            
+            for dirpath, dirnames, filenames in os.walk(traversing_directory):
+                if self.converted_folder_name in dirnames:
+                    converted_photos_dir = os.path.join(dirpath, self.converted_folder_name)
+                    parent_dir = dirpath
+                    
+                    for filename in os.listdir(converted_photos_dir):
+                        filename_without_ext = os.path.splitext(filename)[0]
+                        matching_files = [
+                            f for f in os.listdir(parent_dir)
+                            if os.path.isfile(os.path.join(parent_dir, f)) and os.path.splitext(f)[0] == filename_without_ext
+                        ]
+                        
+                        if not matching_files:
+                            old_path = os.path.join(converted_photos_dir, filename)
+                            new_path = os.path.join(parent_dir, filename)
+                            self.logger.debug(f'Moving {old_path} to {new_path}')
+                            os.rename(old_path, new_path)
