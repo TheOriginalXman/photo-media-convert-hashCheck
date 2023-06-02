@@ -347,7 +347,7 @@ class PhotoConverter:
             else:
                 self.logger.info(f'Path was successfully removed')
 
-    def move_missing_files_from_converted_to_actual_directory(self, traversing_directories = []):
+    def move_missing_files_from_converted_to_actual_directory(self, traversing_directories = [], removeDepthFiles = True):
         if not traversing_directories and self.root_directories:
             traversing_directories = self.root_directories
         
@@ -369,6 +369,11 @@ class PhotoConverter:
                     parent_dir = dirpath
                     
                     for filename in os.listdir(converted_photos_dir):
+                        if removeDepthFiles:
+                            if filename.endswith('-depth.jpeg'):
+                                file_path = os.path.join(converted_photos_dir, filename)
+                                self.logger.info(f"Removing depth file: {file_path}")
+                                os.remove(file_path)
                         filename_without_ext = os.path.splitext(filename)[0]
                         matching_files = [
                             f for f in os.listdir(parent_dir)
